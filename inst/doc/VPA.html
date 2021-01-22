@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Quang Huynh (quang@bluematterscience.com)" />
+
+<meta name="date" content="2021-01-19" />
+
+<title>1d. Virtual population analysis (VPA)</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+<script>// Hide empty <a> tag within highlighted CodeBlock for screen reader accessibility (see https://github.com/jgm/pandoc/issues/6352#issuecomment-626106786) -->
+// v0.0.1
+// Written by JooYoung Seo (jooyoung@psu.edu) and Atsushi Yasumoto on June 1st, 2020.
+
+document.addEventListener('DOMContentLoaded', function() {
+  const codeList = document.getElementsByClassName("sourceCode");
+  for (var i = 0; i < codeList.length; i++) {
+    var linkList = codeList[i].getElementsByTagName('a');
+    for (var j = 0; j < linkList.length; j++) {
+      if (linkList[j].innerHTML === "") {
+        linkList[j].setAttribute('aria-hidden', 'true');
+      }
+    }
+  }
+});
+</script>
+
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">1d. Virtual population analysis (VPA)</h1>
+<h4 class="author">Quang Huynh (<a href="mailto:quang@bluematterscience.com" class="email">quang@bluematterscience.com</a>)</h4>
+<h4 class="date">2021-01-19</h4>
+
+
+<div id="TOC">
+<ul>
+<li><a href="#introduction"><span class="toc-section-number">1</span> Introduction</a></li>
+<li><a href="#virtual-population-analysis-vpa"><span class="toc-section-number">2</span> Virtual Population Analysis (VPA)</a>
+<ul>
+<li><a href="#dynamics-equations"><span class="toc-section-number">2.1</span> Dynamics equations</a></li>
+<li><a href="#additional-constraints"><span class="toc-section-number">2.2</span> Additional constraints</a></li>
+</ul></li>
+<li><a href="#references"><span class="toc-section-number">3</span> References</a></li>
+</ul>
+</div>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({ TeX: { equationNumbers: {autoNumber: "all"} } });
+</script>
+<style type="text/css">
+
+body{ /* Normal  */
+   font-size: 12px;
+}
+td {  /* Table  */
+   font-size: 8px;
+}
+h1 { /* Header 1 */
+ font-size: 18px;
+ color: DarkBlue;
+}
+h2 { /* Header 2 */
+ font-size: 15px;
+ color: DarkBlue;
+}
+h3 { /* Header 3 */
+ font-size: 14px;
+ color: DarkBlue;
+}
+code.r{ /* Code block */
+  font-size: 10px;
+}
+pre { /* Code block */
+  font-size: 10px
+}
+</style>
+<p><br></p>
+<div id="introduction" class="section level1" number="1">
+<h1 number="1"><span class="header-section-number">1</span> Introduction</h1>
+<p>In SAMtool, assessment models are of class <code>Assess</code>. This appendix provides a brief description and references for the <code>Assess</code> objects. Further details regarding parameterization, e.g., fixing parameters, and tuning, e.g., adjusting start parameters, are provided in the function documentation.</p>
+<p>For LaTeX equation rendering, it is recommended that this vignette be viewed in a HTML browser. This can be done with the <code>browseVignettes</code> function in R:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1"></a><span class="kw">browseVignettes</span>(<span class="st">&quot;SAMtool&quot;</span>)</span></code></pre></div>
+</div>
+<div id="virtual-population-analysis-vpa" class="section level1" number="2">
+<h1 number="2"><span class="header-section-number">2</span> Virtual Population Analysis (VPA)</h1>
+<p>The VPA model reconstructs the historical population based on an expanded catch at age matrix and an index of abundance. From an estimate of the fishing mortality in the terminal year, historical abundance and fishing mortality are back-calculated. Natural mortality is a required input parameter. For a biomass-based index, weight at age is also required. Maturity at age is also required if spawning biomass is to be calculated. The dynamics equations are based on VPA-2BOX (Porch 2018), although 2-stock mixing and diffusion processes are not modeled here. The maximum age in the model is a plus-group accumulator age.</p>
+<div id="dynamics-equations" class="section level2" number="2.1">
+<h2 number="2.1"><span class="header-section-number">2.1</span> Dynamics equations</h2>
+<p>In this model, fishing mortality <span class="math inline">\(F_{a,t}\)</span> of age <span class="math inline">\(a\)</span> in year <span class="math inline">\(t\)</span> is generally solved from the observed catch of the corresponding age and year <span class="math inline">\(C_{a,t}\)</span> and the estimated abundance of the same cohort in the following year <span class="math inline">\(N_{a+1,t+1}\)</span>: <span class="math display">\[F_{a,t} = \dfrac{Z_{a,t}C_{a,t}}{[\exp(Z_{a,t}) - 1]N_{a+1,t+1}},\]</span> where <span class="math inline">\(Z_{a,t} = F_{a,t} + M_a\)</span>, and <span class="math inline">\(M\)</span> is natural mortality. Equation 1 is Baranov’s equation with the substitution: <span class="math inline">\(N_{a,t}=N_{a+1,t+1}\exp(Z_{a,t})\)</span>. Newton’s method is used to numerically solve Equation 1.</p>
+<p>With <span class="math inline">\(F_{a,t}\)</span>, the abundance of the corresponding age and year is solved also from Baranov’s equation: <span class="math display">\[N_{a,t} = \dfrac{C_{a,t}Z_{a,t}}{F_{a,t}[1 - \exp(-Z_{a,t})]}.\]</span></p>
+<p>There are two exceptions to this algorithm. First, for the terminal year <span class="math inline">\(t=T\)</span>, F is estimated in the model, followed by the calculations for the terminal year abundances with Equation 2. This starts the back-calculations for <span class="math inline">\(F\)</span> and <span class="math inline">\(N\)</span> for the preceding years with equations 1 and 2, respectively. The terminal F-at-age vector <span class="math inline">\(F_{a,T}\)</span> can be free parameters with age or constrained as a logistic or double-normal (dome) function with age.</p>
+<p>Second, the fishing mortality rates of the plus-group age <span class="math inline">\(a=A\)</span> and the preceding age <span class="math inline">\(a=A-1\)</span> are subject to additional constraints and are solved separately. First, note that the abundance of the plus-group in year <span class="math inline">\(t+1\)</span> must satisfy the equation <span class="math display">\[ N_{A,t+1} = N_{A,t}\exp(-Z_{A,t}) + N_{A-1,t}\exp(-Z_{A-1,t}),\]</span> with <span class="math display">\[\begin{align}
+N_{A,t} &amp;= \dfrac{C_{A,t}Z_{A,t}}{F_{A,t}[1 - \exp(-Z_{A,t})]}\\
+N_{A-1,t} &amp;= \dfrac{C_{A-1,t}Z_{A-1,t}}{F_{A-1,t}[1 - \exp(-Z_{A-1,t})]}
+\end{align}.\]</span></p>
+<p>An additional constraint is needed for the plus-group <span class="math inline">\(F\)</span>, where <span class="math display">\[F_{A,t} = \alpha F_{A-1,t},\]</span> where <span class="math inline">\(\alpha\)</span> is a numeric constant either fixed (often to 1) or estimated in the model.</p>
+<p>From <span class="math inline">\(N_{A,t+1}\)</span>, <span class="math inline">\(C_{A,t}\)</span>, <span class="math inline">\(C_{A-1,t}\)</span>, <span class="math inline">\(M_A\)</span>, and <span class="math inline">\(M_{A-1}\)</span>, we can solve <span class="math inline">\(F_{A-1,t}\)</span> and <span class="math inline">\(F_{A,t}\)</span> as the values that satisfy equations 3-6. The corresponding abundances <span class="math inline">\(N_{A-1,t}\)</span> and <span class="math inline">\(N_{A,t}\)</span> are then obtained with equation 2.</p>
+<p>The VPA is tuned to an index via maximum likelihood. The predicted biomass index is <span class="math display">\[ \hat{I}_t = \hat{q}\sum_a N_{a,t} w_a.\]</span> The likelihood of the observed index is</p>
+<p><span class="math display">\[L^I = \sum_t \left(-\log(\sigma) - 0.5\left[\dfrac{\log(I_t) - \log(\hat{I}_t)}{\sigma}\right]^2\right),\]</span></p>
+<p><span class="math display">\[\log(I_t) \sim N(\log(\hat{I}_t), \sigma^2).\]</span></p>
+<p>From the VPA output, reference points can be calculated. Estimates of recruitment (the youngest age class <span class="math inline">\(\tilde{a}\)</span>) and spawning biomass are used to estimate a stock-recruitment relationship to obtain MSY and unfished reference points.</p>
+</div>
+<div id="additional-constraints" class="section level2" number="2.2">
+<h2 number="2.2"><span class="header-section-number">2.2</span> Additional constraints</h2>
+<p>In any VPA model, estimates of F and N of the youngest age classes are highly uncertain. To stabilize estimates, random walk penalties can be applied to the recruitment and vulnerability estimates in the most recent years: <span class="math display">\[ \begin{align}
+\log(N_{\tilde{a},t}) &amp;\sim N(\log(N_{\tilde{a}, t-1}), \sigma_{\tilde{a}}^2)\\
+\log(v_{a,t}) &amp;\sim N(\log(v_{a,t-1}, \sigma_v^2)
+\end{align},\]</span> where <span class="math inline">\(\tilde{a}\)</span> is the smallest age in the VPA and <span class="math inline">\(v_{a,t} = F_{a,t}/\max_a F_{a,t}\)</span>.</p>
+<p>Note that these penalties can significantly alter model results, and generate spurious trends in F and N especially if there are significantly shifts in recent vulnerability and recruitment. The implications of incorporating these random walk penalties need to be evaluated on a case-by-case basis.</p>
+</div>
+</div>
+<div id="references" class="section level1" number="3">
+<h1 number="3"><span class="header-section-number">3</span> References</h1>
+<p>Porch, C.E. 2018. VPA-2BOX 4.01 User Guide. NOAA Tech. Memo. NMFS-SEFSC-726. 67 pp.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

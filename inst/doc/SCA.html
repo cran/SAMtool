@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Quang Huynh (quang@bluematterscience.com)" />
+
+<meta name="date" content="2021-01-19" />
+
+<title>1b. Statistical catch-at-age (SCA) model</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+<script>// Hide empty <a> tag within highlighted CodeBlock for screen reader accessibility (see https://github.com/jgm/pandoc/issues/6352#issuecomment-626106786) -->
+// v0.0.1
+// Written by JooYoung Seo (jooyoung@psu.edu) and Atsushi Yasumoto on June 1st, 2020.
+
+document.addEventListener('DOMContentLoaded', function() {
+  const codeList = document.getElementsByClassName("sourceCode");
+  for (var i = 0; i < codeList.length; i++) {
+    var linkList = codeList[i].getElementsByTagName('a');
+    for (var j = 0; j < linkList.length; j++) {
+      if (linkList[j].innerHTML === "") {
+        linkList[j].setAttribute('aria-hidden', 'true');
+      }
+    }
+  }
+});
+</script>
+
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">1b. Statistical catch-at-age (SCA) model</h1>
+<h4 class="author">Quang Huynh (<a href="mailto:quang@bluematterscience.com" class="email">quang@bluematterscience.com</a>)</h4>
+<h4 class="date">2021-01-19</h4>
+
+
+<div id="TOC">
+<ul>
+<li><a href="#introduction"><span class="toc-section-number">1</span> Introduction</a></li>
+<li><a href="#statistical-catch-at-age-model-sca-and-sca2"><span class="toc-section-number">2</span> Statistical catch-at-age model (SCA and SCA2)</a>
+<ul>
+<li><a href="#dynamics-equations"><span class="toc-section-number">2.1</span> Dynamics equations</a></li>
+<li><a href="#selectivity"><span class="toc-section-number">2.2</span> Selectivity</a></li>
+<li><a href="#biomass"><span class="toc-section-number">2.3</span> Biomass</a></li>
+<li><a href="#catch-at-age"><span class="toc-section-number">2.4</span> Catch-at-age</a></li>
+<li><a href="#likelihoods"><span class="toc-section-number">2.5</span> Likelihoods</a>
+<ul>
+<li><a href="#sca-with-popes-approximation-sca_pope"><span class="toc-section-number">2.5.1</span> SCA with Pope’s approximation (SCA_Pope)</a></li>
+</ul></li>
+<li><a href="#estimation-of-recruitment-and-reference-points"><span class="toc-section-number">2.6</span> Estimation of recruitment and reference points</a>
+<ul>
+<li><a href="#stock-recruit-function-in-assessment-model-sca"><span class="toc-section-number">2.6.1</span> Stock-recruit function in assessment model (SCA)</a></li>
+<li><a href="#no-stock-recruit-function-in-assessment-model-sca2"><span class="toc-section-number">2.6.2</span> No stock-recruit function in assessment model (SCA2)</a></li>
+<li><a href="#likelihood-of-recruitment-deviations"><span class="toc-section-number">2.6.3</span> Likelihood of recruitment deviations</a></li>
+</ul></li>
+</ul></li>
+<li><a href="#references"><span class="toc-section-number">3</span> References</a></li>
+</ul>
+</div>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({ TeX: { equationNumbers: {autoNumber: "all"} } });
+</script>
+<style type="text/css">
+
+body{ /* Normal  */
+   font-size: 12px;
+}
+td {  /* Table  */
+   font-size: 8px;
+}
+h1 { /* Header 1 */
+ font-size: 18px;
+ color: DarkBlue;
+}
+h2 { /* Header 2 */
+ font-size: 15px;
+ color: DarkBlue;
+}
+h3 { /* Header 3 */
+ font-size: 14px;
+ color: DarkBlue;
+}
+code.r{ /* Code block */
+  font-size: 10px;
+}
+pre { /* Code block */
+  font-size: 10px
+}
+</style>
+<p><br></p>
+<div id="introduction" class="section level1" number="1">
+<h1 number="1"><span class="header-section-number">1</span> Introduction</h1>
+<p>In SAMtool, assessment models are of class <code>Assess</code>. This appendix provides a brief description and references for the <code>Assess</code> objects. Further details regarding parameterization, e.g., fixing parameters, and tuning, e.g., adjusting start parameters, are provided in the function documentation.</p>
+<p>For LaTeX equation rendering, it is recommended that this vignette be viewed in a HTML browser. This can be done with the <code>browseVignettes</code> function in R:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1"></a><span class="kw">browseVignettes</span>(<span class="st">&quot;SAMtool&quot;</span>)</span></code></pre></div>
+</div>
+<div id="statistical-catch-at-age-model-sca-and-sca2" class="section level1" number="2">
+<h1 number="2"><span class="header-section-number">2</span> Statistical catch-at-age model (SCA and SCA2)</h1>
+<div id="dynamics-equations" class="section level2" number="2.1">
+<h2 number="2.1"><span class="header-section-number">2.1</span> Dynamics equations</h2>
+<p>The statistical catch-at-age model uses a time series of total catch (in weight), index, and catch-at-age observations, as well as information on weight, maturity, natural mortality at age.</p>
+<p>The population abundance <span class="math inline">\(N_{a,t}\)</span> of age <span class="math inline">\(a\)</span> in year <span class="math inline">\(t\)</span> is <span class="math display">\[ N_{a,t} =
+\begin{cases}
+      R_t &amp; a = 1\\
+      N_{a-1,t-1} \exp(- v_{a-1} F_{t-1} - M_{a-1}) &amp; a = 2, \ldots, A-1\\
+      N_{a-1,t-1} \exp(- v_{a-1} F_{t-1} - M_{a-1}) + N_{a,t-1} \exp(- v_a F_{t-1} - M_a) &amp; a = A
+\end{cases},
+\]</span> where <span class="math inline">\(R_t\)</span> is the recruitment (age-1), <span class="math inline">\(v_a\)</span> is the vulnerability at age <span class="math inline">\(a\)</span>, <span class="math inline">\(F_t\)</span> is the apical fishing mortality rate, <span class="math inline">\(M_a\)</span> is the instantaneous natural mortality rate at age <span class="math inline">\(a\)</span>, and <span class="math inline">\(A\)</span> is the maximum age in the model as a plus-group accumulator age.</p>
+</div>
+<div id="selectivity" class="section level2" number="2.2">
+<h2 number="2.2"><span class="header-section-number">2.2</span> Selectivity</h2>
+<p>Assuming logistic vulnerability, the vulnerability is: <span class="math display">\[v_a = \left[1 + \exp\left(-\log(19) \dfrac{a - a_{50}}{a_{95} - a_{50}}\right)\right]^{-1}, \]</span> where <span class="math inline">\(a_{50}\)</span> and <span class="math inline">\(a_{95}\)</span> are the estimated ages of 50% and 95% vulnerability, respectively.</p>
+<p>Assuming dome vulnerability, a double Gaussian formulation is used: <span class="math display">\[ v_a =
+\begin{cases}
+      f(a; a_{asc}, \sigma_{asc}) &amp; a \le a_{asc}\\
+      1 &amp; a_{asc} \lt a \le a_{des}\\
+      f(a; a_{des}, \sigma_{des}) &amp; a \gt a_{des}
+\end{cases},
+\]</span> where <span class="math inline">\(f(a; \mu, \sigma) = \exp(-0.5 (a - \mu)^2/\sigma^2)\)</span> is the normal probability density function scaled to one at <span class="math inline">\(\mu\)</span>. Four parameters are estimated: <span class="math inline">\(a_{50}\)</span> the age of 50% vulnerability (ascending limb), <span class="math inline">\(a_{asc}\)</span> the first age of full vulnerability, <span class="math inline">\(a_{des}\)</span> the last age of full vulnerability, and <span class="math inline">\(v_A\)</span> the vulnerability at the maximum age in the model. The <span class="math inline">\(\mu\)</span> and <span class="math inline">\(\sigma\)</span> for both the ascending and descending limbs of the double-normal equation are estimated parameters. From these four parameters, <span class="math inline">\(\sigma_{asc} = \sqrt{(a_{50} - \mu_{asc})^2/\log(4)}\)</span> and <span class="math inline">\(\sigma_{des} = \sqrt{-0.5(A - \mu_{des})^2/\log(v_A)}\)</span> can be derived. The default option sets <span class="math inline">\(a_{asc} = a_{des}\)</span>.</p>
+</div>
+<div id="biomass" class="section level2" number="2.3">
+<h2 number="2.3"><span class="header-section-number">2.3</span> Biomass</h2>
+<p>The vulnerable biomass <span class="math inline">\(VB_t\)</span> at the beginning of year <span class="math inline">\(t\)</span> is <span class="math display">\[VB_t = \sum_{a=1}^A v_a w_a N_{a,t},\]</span> where weight-at-age <span class="math inline">\(w_a\)</span> is given by <span class="math display">\[w_a = W_{\infty}(1 - \exp[K\{a-a_0\}])^b.\]</span></p>
+<p>The mature spawning biomass <span class="math inline">\(E_t\)</span> is given by <span class="math display">\[E_t = \sum_{a=1}^A m_a w_a N_{a,t},\]</span> where maturity at age <span class="math inline">\(m_a\)</span> is <span class="math display">\[m_a = \left[1 + \exp\left(-\log(19) \dfrac{a - \tilde{a}_{50}}{\tilde{a}_{95} - \tilde{a}_{50}}\right)\right]^{-1}, \]</span> where <span class="math inline">\(\tilde{a}_{50}\)</span> and <span class="math inline">\(\tilde{a}_{95}\)</span> are the ages of 50% and 95% maturity, respectively.</p>
+</div>
+<div id="catch-at-age" class="section level2" number="2.4">
+<h2 number="2.4"><span class="header-section-number">2.4</span> Catch-at-age</h2>
+<p>The estimated catch-at-age <span class="math inline">\(\hat{C}_{a,t}\)</span> (CAA) is obtained from the Baranov equation: <span class="math display">\[\hat{C}_{a,t} = \dfrac{\hat{v}_a \hat{F}_t}{\hat{v}_a \hat{F}_t + M_a} [1 - \exp(- \hat{v}_a \hat{F}_t - M_a)] \hat{N}_{a,t}.\]</span> The predicted total catch in weight <span class="math inline">\(\hat{Y}_t\)</span> is <span class="math inline">\(\hat{Y}_t = \sum_a w_a \hat{C}_{a,t}.\)</span></p>
+<p>The estimated index <span class="math inline">\(\hat{I}_t\)</span>, assuming that it is an index for total biomass, is <span class="math display">\[ \hat{I}_t = \hat{q} \hat{B}_t,\]</span> where <span class="math inline">\(B_t = \sum_{a=1}^A w_a N_{a,t}\)</span>. A function argument allows for the user to specify that the observed index is for vulnerable or spawning biomass.</p>
+</div>
+<div id="likelihoods" class="section level2" number="2.5">
+<h2 number="2.5"><span class="header-section-number">2.5</span> Likelihoods</h2>
+<p>The likelihood of the observed catch at age <span class="math inline">\(C_{a,t}\)</span>, assuming a multinomial distribution, is <span class="math display">\[L^{CAA} = \sum_t O_t \sum_a p_{a,t} \log(\hat{p}_{a,t}),\]</span></p>
+<p>where <span class="math inline">\(O_t\)</span> is the assumed sample size of catch-at-age observations in year <span class="math inline">\(t\)</span> and <span class="math inline">\(\hat{p}_{a,t} = \hat{C}_{a,t}/\sum_a\hat{C}_{a,t}\)</span> is annual predicted proportions of catch-at-age.</p>
+<p>If a lognormal distribution for the observed proportions at age is assumed, then the likelihood is <span class="math display">\[L^{CAA} = \sum_t \left(-\log(0.01/\hat{p}_{a,t}) - 0.5\left[\dfrac{\log(p_{a,t}) - \log(\hat{p}_{a,t})}{0.01/\hat{p}_{a,t}}\right]^2\right)\]</span>.</p>
+<p>The likelihood of the observed catch <span class="math inline">\(Y_t\)</span>, assuming a lognormal distribution, is <span class="math display">\[L^Y = \sum_t \left(-\log(\omega) - 0.5\left[\dfrac{\log(Y_t) - \log(\hat{Y}_t)}{\omega}\right]^2\right).\]</span></p>
+<p>The likelihood of the observed index <span class="math inline">\(I_t\)</span>, assuming a lognormal distribution, is <span class="math display">\[L^I = \sum_t \left(-\log(\sigma) - 0.5\left[\dfrac{\log(I_t) - \log(\hat{I}_t)}{\sigma}\right]^2\right).\]</span></p>
+<div id="sca-with-popes-approximation-sca_pope" class="section level3" number="2.5.1">
+<h3 number="2.5.1"><span class="header-section-number">2.5.1</span> SCA with Pope’s approximation (SCA_Pope)</h3>
+<p>A variant of the SCA is the <code>SCA_Pope</code> function, which fixes the predicted catches to the observed catches and uses Pope’s approximation to calculate the annual harvest rate in the midpoint of the year.</p>
+<p>The abundance at age is</p>
+<p><span class="math display">\[ N_{a,t} =
+\begin{cases}
+      R_t &amp; a = 1\\
+      N_{a-1,t-1} (1 - v_{a-1} u_{t-1}) \exp(-M_{a-1}) &amp; a = 2, \ldots, A-1\\
+      N_{a-1,t-1} (1 - v_{a-1} u_{t-1}) \exp(-M_{a-1}) + N_{a,t-1} (1 - v_a u_{t-1}) \exp(-M_a) &amp; a = A
+\end{cases},
+\]</span> where <span class="math inline">\(u_t\)</span> is the harvest rate.</p>
+<p>The vulnerable biomass in the midpoint of the year is <span class="math display">\[VB^{mid}_t = \sum_{a=1}^A v_a w_a N_{a,t} \exp(-0.5 M_a).\]</span></p>
+<p>By conditioning the model on catch in weight <span class="math inline">\(Y_t\)</span>, the estimated annual harvest rate <span class="math inline">\(\hat{u}_t\)</span> is <span class="math display">\[\hat{u}_t = Y_t / \widehat{VB^{mid}}_t .\]</span> The estimated catch at age <span class="math inline">\(\hat{C}_{a,t}\)</span> is <span class="math display">\[\hat{C}_{a,t} = \hat{v}_a \hat{u}_t \hat{N}_{a,t} \exp(-0.5 M_a).\]</span></p>
+</div>
+</div>
+<div id="estimation-of-recruitment-and-reference-points" class="section level2" number="2.6">
+<h2 number="2.6"><span class="header-section-number">2.6</span> Estimation of recruitment and reference points</h2>
+<p>There are two variants of the statistical catch-at-age model for estimation of recruitment and reference points. In function <code>SCA</code>, productivity parameters <span class="math inline">\(R_0\)</span> and <span class="math inline">\(h\)</span> are estimated in the assessment model. Annual recruitment is estimated as deviations from the resulting stock-recruitment relationship within the model. MSY reference points are derived from the estimates of <span class="math inline">\(R_0\)</span> and <span class="math inline">\(h\)</span>.</p>
+<p>In <code>SCA2</code>, no stock-recruit relationship is assumed in the assessment model, i.e., annual recruitment is estimated as deviations from the mean recruitment over the observed time series, similar to Cadigan (2016). After the assessment, a stock-recruit function can be fitted post-hoc to the recruitment and spawning stock biomass estimates from the assessment model to obtain MSY reference points.</p>
+<div id="stock-recruit-function-in-assessment-model-sca" class="section level3" number="2.6.1">
+<h3 number="2.6.1"><span class="header-section-number">2.6.1</span> Stock-recruit function in assessment model (SCA)</h3>
+<div id="beverton-holt-stock-recruit-function" class="section level4" number="2.6.1.1">
+<h4 number="2.6.1.1"><span class="header-section-number">2.6.1.1</span> Beverton-Holt stock-recruit function</h4>
+<p>Recruitment <span class="math inline">\(R_t\)</span> in year <span class="math inline">\(t\)</span> is <span class="math display">\[ R_t = \dfrac{\alpha E_{t-1}}{1 + \beta E_{t-1}} \exp(\delta_t - 0.5 \tau^2),\]</span> where <span class="math inline">\(\delta_t \sim N(0, \tau^2)\)</span> are recruitment deviations from the stock-recruit relationship in lognormal space and <span class="math inline">\(\tau\)</span> is the standard deviation of the recruitment deviations. Parameters <span class="math inline">\(\alpha\)</span> and <span class="math inline">\(\beta\)</span> are defined as <span class="math display">\[ \begin{align}
+\alpha &amp;= \dfrac{4hR_0}{(1-h)B_0}\\
+\beta &amp;= \dfrac{5h-1}{(1-h)B_0},
+\end{align}\]</span> where <span class="math inline">\(B_0 = R_0 \phi_0\)</span>. The biomass per recruit <span class="math inline">\(\phi_0\)</span> is calculated as <span class="math inline">\(\phi_0 = \sum_{a=1}^A m_a w_a l_a\)</span>, where <span class="math display">\[
+l_a =
+\begin{cases}
+      1 &amp; a = 1\\
+      l_{a-1} \exp(-M_{a-1}) &amp; a = 2, \ldots, A-1\\
+      \dfrac{l_{a-1} \exp(-M_{a-1})}{1 - \exp(-M_a)} &amp; a = A \\
+\end{cases}.
+\]</span></p>
+</div>
+<div id="ricker-stock-recruit-function" class="section level4" number="2.6.1.2">
+<h4 number="2.6.1.2"><span class="header-section-number">2.6.1.2</span> Ricker stock-recruit function</h4>
+<p>Recruitment <span class="math inline">\(R_t\)</span> in year <span class="math inline">\(t\)</span> is <span class="math display">\[ R_t = \alpha E_{t-1} \exp(-\beta E_{t-1}) \exp(\delta_t - 0.5 \tau^2),\]</span> where <span class="math display">\[ \begin{align}
+\alpha &amp;= \dfrac{(5h)^{1.25} R_0}{B_0}\\
+\beta &amp;= \dfrac{5}{4B_0}\log(5h).
+\end{align}\]</span></p>
+</div>
+</div>
+<div id="no-stock-recruit-function-in-assessment-model-sca2" class="section level3" number="2.6.2">
+<h3 number="2.6.2"><span class="header-section-number">2.6.2</span> No stock-recruit function in assessment model (SCA2)</h3>
+<p>Recruitment <span class="math inline">\(R_t\)</span> in year <span class="math inline">\(t\)</span> is <span class="math display">\[R_t = \bar{R} \exp(\delta_t - 0.5 \tau^2), \]</span> where <span class="math inline">\(\delta_t \sim N(0, \tau^2)\)</span> are recruitment deviations in lognormal space from the estimated mean recruitment <span class="math inline">\(\bar{R}\)</span> and <span class="math inline">\(\tau\)</span> is the standard deviation of the recruitment deviations. Typically, <span class="math inline">\(\tau\)</span> is set to 1 so that recruitment is estimated almost as free parameters (Cadigan, 2016).</p>
+</div>
+<div id="likelihood-of-recruitment-deviations" class="section level3" number="2.6.3">
+<h3 number="2.6.3"><span class="header-section-number">2.6.3</span> Likelihood of recruitment deviations</h3>
+<p>The likelihood of the estimated log-recruitment deviations <span class="math inline">\(\hat{\delta}_t\)</span> (penalized parameters) is <span class="math display">\[L^{\delta} = \sum_t \left(-\log(\tau) - 0.5\left[\dfrac{\hat{\delta}_t}{\tau}\right]^2\right).\]</span></p>
+</div>
+</div>
+</div>
+<div id="references" class="section level1" number="3">
+<h1 number="3"><span class="header-section-number">3</span> References</h1>
+<p>Cadigan, N.G. 2016. A state-space stock assessment model for northern cod, including under-reported catches and variable natural mortality rates. Canadian Journal of Fisheries and Aquatic Science 72:296-308.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
