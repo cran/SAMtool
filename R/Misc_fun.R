@@ -174,6 +174,7 @@ sdreport_int <- function(object, select = c("all", "fixed", "random", "report"),
 
   out <- rbind(AD, fix, random)
   out <- cbind(out, "CV" = ifelse(abs(out[, "Estimate"]) > 0, out[, "Std. Error"]/abs(out[, "Estimate"]), NA_real_))
+  rownames(out) <- make_unique_names(rownames(out))
   return(out)
 }
 
@@ -208,45 +209,6 @@ expand_comp_matrix <- function(Data, comp_type = c("CAA", "CAL")) {
   }
   return(Data)
 }
-
-# var_div - report variables which are divided by the catch rescale
-# var_mult - report variables which are multiplied by the catch rescale
-# var_trans - transformed variables which need to be rescaled
-# fun_trans - the function for rescaling the transformed variables (usually either "*" or "/")
-# fun_fixed - the transformation from the output variable to the estimated variable indicated in var_trans (e.g. log, logit, NULL)
-rescale_report <- function(var_div, var_mult, var_trans = NULL, fun_trans = NULL, fun_fixed = NULL) {
-  output <- mget(c("report", "rescale", "SD"), envir = parent.frame(), ifnotfound = list(NULL))
-  report <- output$report
-
-  if(!is.null(var_div)) report[var_div] <- lapply(report[var_div], "/", output$rescale)
-  if(!is.null(var_mult)) report[var_mult] <- lapply(report[var_mult], "*", output$rescale)
-  assign("report", report, envir = parent.frame())
-
-  if(!is.null(output$SD) && !is.character(output$SD)) {
-    SD <- output$SD
-    if(!is.null(var_trans)) {
-      for(i in 1:length(var_trans)) {
-        var_trans2 <- var_trans[i]
-        fun_trans2 <- fun_trans[i]
-        fun_fixed2 <- fun_fixed[i]
-
-        ind <- var_trans2 == names(SD$value)
-        if(any(ind)) {
-          SD$value[ind] <- do.call(match.fun(fun_trans2), list(SD$value[ind], output$rescale))
-          SD$sd[ind] <- do.call(match.fun(fun_trans2), list(SD$sd[ind], output$rescale))
-        }
-        if(!is.na(fun_fixed2)) {
-          fixed_name <- paste0(fun_fixed2, "_", var_trans2)
-          ind_fixed <- fixed_name == names(SD$par.fixed)
-          if(any(ind_fixed)) SD$par.fixed[ind_fixed] <- do.call(match.fun(fun_fixed2), list(SD$value[var_trans2]))
-        }
-      }
-    }
-    assign("SD", SD, envir = parent.frame())
-  }
-  invisible()
-}
-
 
 sample_steepness3 <- function(n, mu, cv, SR_type = c("BH", "Ricker")) {
   if(n == 1) {

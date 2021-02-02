@@ -109,6 +109,8 @@ Type VPA(objective_function<Type> *obj) {
   matrix<Type> s_CN(n_y,nsurvey);
   matrix<Type> s_BN(n_y,nsurvey);
   matrix<Type> Ipred(n_y,nsurvey);
+  s_CN.setZero();
+  s_BN.setZero();
   for(int sur=0;sur<nsurvey;sur++) {
     for(int y=0;y<n_y;y++) {
       for(int a=0;a<n_age;a++) {
@@ -129,7 +131,7 @@ Type VPA(objective_function<Type> *obj) {
   nll_comp.setZero();
   for(int sur=0;sur<nsurvey;sur++) {
     for(int y=0;y<n_y;y++) {
-      if(LWT(sur) > 0 && !R_IsNA(asDouble(I_hist(y,sur)))) {
+      if(LWT(sur) > 0 && !R_IsNA(asDouble(I_hist(y,sur))) && I_hist(y,sur) > 0) {
         nll_comp(sur) -= dnorm_(log(I_hist(y,sur)), log(Ipred(y,sur)), I_sd(y,sur), true);
       }
       if(y>n_y-n_vulpen) {
