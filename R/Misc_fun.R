@@ -9,7 +9,7 @@ arrows <- function(...) suppressWarnings(graphics::arrows(...))
 #' @examples
 #' userguide()
 #' 
-#' @return Displays a browser webpage of URL links to package vignettes.
+#' @return Displays a browser webpage to the package vignette.
 #' @export
 userguide <- function() browseVignettes("SAMtool")
 
@@ -45,6 +45,18 @@ logit2 <- function(v, ymin = 0, ymax = 1, y0 = 0.5, scale = 1) {
   location <- scale * log((ymax - ymin)/(y0 - ymin) - 1)
   p <- (v - ymin)/(ymax - ymin)
   return(qlogis(p, location, scale))
+}
+
+tiny_comp <- function(x) {
+  all_zero <- all(is.na(x)) | sum(x, na.rm = TRUE) == 0
+  if(!all_zero) {
+    x_out <- x/sum(x, na.rm = TRUE)
+    ind <- is.na(x) | x == 0
+    if(any(ind)) x_out[ind] <- 1e-8
+  } else {
+    x_out <- x
+  }
+  return(x_out)
 }
 
 get_F01 <- function(FM, YPR) {
@@ -94,7 +106,8 @@ optimize_TMB_model <- function(obj, control = list(), use_hessian = FALSE, resta
   if(any(c("U_equilibrium", "F_equilibrium") %in% names(obj$par))) {
     low[match(c("U_equilibrium", "F_equilibrium"), names(obj$par))] <- 0
   }
-  opt <- try(suppressWarnings(nlminb(obj$par, obj$fn, obj$gr, h, control = control, lower = low)), silent = TRUE)
+  opt <- tryCatch(suppressWarnings(nlminb(obj$par, obj$fn, obj$gr, h, control = control, lower = low)),
+                  error = function(e) as.character(e))
   SD <- get_sdreport(obj)
 
   if(!SD$pdHess && restart > 0) {
@@ -112,11 +125,12 @@ check_det <- function(h, abs_val = 0.1, is_null = TRUE) {
   !is.na(det_h) && det_h < abs_val
 }
 
+#' @importFrom corpcor pseudoinverse
 get_sdreport <- function(obj, getReportCovariance = FALSE) {
   par.fixed <- obj$env$last.par.best
   if(is.null(obj$env$random)) {
     h <- obj$he(par.fixed)
-    if(any(is.na(h)) || det(h) <= 0) {
+    if(any(is.na(h)) || any(is.infinite(h)) || det(h) <= 0) {
       h <- NULL
     } else {
       res <- suppressWarnings(sdreport(obj, par.fixed = par.fixed, hessian.fixed = h, getReportCovariance = getReportCovariance))
@@ -132,12 +146,12 @@ get_sdreport <- function(obj, getReportCovariance = FALSE) {
     res <- suppressWarnings(sdreport(obj, par.fixed = par.fixed, hessian.fixed = h, getReportCovariance = getReportCovariance))
   }
   
-  if(requireNamespace("numDeriv", quietly = TRUE) && !res$pdHess && check_det(h)) {
+  if(check_det(h) && !res$pdHess && requireNamespace("numDeriv", quietly = TRUE)) {
     h <- numDeriv::jacobian(obj$gr, par.fixed)
     res <- suppressWarnings(sdreport(obj, par.fixed = par.fixed, hessian.fixed = h, getReportCovariance = getReportCovariance))
   }
   
-  if(res$pdHess && all(is.na(res$cov.fixed))) {
+  if(all(is.na(res$cov.fixed)) && res$pdHess) {
     if(!is.character(try(chol(h), silent = TRUE))) res$cov.fixed <- chol2inv(chol(h))
   }
 
@@ -278,7 +292,14 @@ Assess_I_hist <- function(xx, Data, x, yind) {
   }
 
   if(exists("I_hist", inherits = FALSE)) {
-    I_hist[I_hist <= 0] <- NA
+    I_hist[!is.na(I_hist) & I_hist <= 0] <- NA_real_
+    if(all(is.na(I_sd)) || all(!I_sd, na.rm = TRUE)) {
+      if(!is.null(Data@Obs$Isd[x])) {
+        I_sd <- rep(Data@Obs$Isd[x], length(yind))
+      } else {
+        I_sd <- rep(0.2, length(yind))
+      }
+    }
   } else {
     I_hist <- I_sd <- I_units <- NULL
   }
@@ -299,4 +320,59 @@ dev_AC <- function(n, mu = 1, stdev, AC, seed, chain_start) {
   }
   for(i in 2:n) out[i] <- out[i-1] * AC + samp[i] * sqrt(1 - AC^2)
   return(out)
+}
+
+
+make_prior <- function(prior, nsurvey, SR_rel, dots = list(), msg = TRUE) { # log_R0, log_M, h, q
+  if(length(prior) == 0 && !is.null(dots$priors)) prior <- dots$priors
+  
+  no_index <- nsurvey == 0
+  if(no_index) nsurvey <- 1 # Use only on next two lines
+  use_prior <- rep(0L, nsurvey + 3)
+  pr_matrix <- matrix(NA_real_, nsurvey + 3, 2) %>% 
+    structure(dimnames = list(c("log_R0", "h", "log_M", paste0("q_", 1:nsurvey)), c("par1", "par2")))
+  
+  if(!is.null(prior$R0)) {
+    if(msg) message("Prior for log_R0 found.")
+    use_prior[1] <- 1L
+    pr_matrix[1, ] <- c(log(prior$R0[1]), prior$R0[2])
+  }
+  if(!is.null(prior$h)) {
+    if(msg) message("Prior for steepness (h) found.")
+    use_prior[2] <- 1L
+    if(SR_rel == 1) { #BH
+      a <- MSEtool::alphaconv(1.25 * prior$h[1] - 0.25, 1.25 * prior$h[2])
+      b <- MSEtool::betaconv(1.25 * prior$h[1] - 0.25, 1.25 * prior$h[2])
+      
+      if(a <= 0) stop("The alpha parameter < 0 (beta distribution) for the steepness prior. Try reducing the prior SD.", call. = FALSE)
+      if(b <= 0) stop("The beta parameter < 0 (beta distribution) for the steepness prior. Try reducing the prior SD.", call. = FALSE)
+      pr_matrix[2, ] <- c(a, b)
+    } else { #Ricker
+      pr_matrix[2, ] <- prior$h
+    }
+  }
+  if(!is.null(prior$M)) {
+    if(msg) message("Prior for log_M found.")
+    use_prior[3] <- 1L
+    pr_matrix[3, ] <- c(log(prior$M[1]), prior$M[2])
+  }
+  if(!no_index && !is.null(prior$q)) {
+    if(msg) message("Prior for q found.")
+    if(nsurvey == 1) {
+      if(is.matrix(prior$q)) {
+        pr_matrix[4, ] <- prior$q[1, ]
+      } else {
+        pr_matrix[4, ] <- prior$q
+      }
+      use_prior[4] <- !is.na(pr_matrix[4, 1])
+    } else if(is.matrix(prior$q) && nrow(prior$q) == nsurvey) {
+      pr_matrix[4:(4+nsurvey-1), ] <- prior$q[1:nsurvey, ]
+      use_prior[4:(4+nsurvey-1)] <- !is.na(pr_matrix[4:(4+nsurvey-1), 1])
+    } else {
+      stop("prior$q should be a matrix of ", nsurvey, "rows and 2 columns.")
+    }
+    if(any(pr_matrix[4:(4+nsurvey-1), 1] <= 0, na.rm = TRUE)) stop("Ensure q prior mean is greater than > 0.")
+    pr_matrix[4:(4+nsurvey-1), 1] <- log(pr_matrix[4:(4+nsurvey-1), 1])
+  }
+  return(list(use_prior = use_prior, pr_matrix = pr_matrix))
 }

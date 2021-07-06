@@ -73,7 +73,8 @@ rmd_SP <- function(Assessment, state_space = FALSE, ...) {
 
   #### Time Series
   ts_output <- c(rmd_F(header = "### Time Series Output\n"), rmd_F_FMSY(FALSE), rmd_B(), rmd_B_BMSY(FALSE),
-                 rmd_B_B0(FALSE), rmd_Kobe("B_BMSY", xlab = "expression(B/B[MSY])", conv_check = FALSE))
+                 rmd_B_B0(FALSE), rmd_dynamic_SSB0("TMB_report$dynamic_SSB0"),
+                 rmd_Kobe("B_BMSY", xlab = "expression(B/B[MSY])", conv_check = FALSE))
 
   productivity <- c(rmd_yield_F("SP", FALSE, header = "### Productivity\n"), rmd_yield_depletion("SP", FALSE), rmd_sp(FALSE))
 
@@ -183,7 +184,7 @@ retrospective_SP <- function(Assessment, nyr, state_space = FALSE) {
     opt2 <- mod[[1]]
     SD <- mod[[2]]
 
-    if(!is.character(opt2) && !is.character(SD)) {
+    if(!is.character(opt2)) {
       report <- obj2$report(obj2$env$last.par.best)
 
       FMort <- c(report$F, rep(NA, 1 + i))

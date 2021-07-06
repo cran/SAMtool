@@ -36,7 +36,7 @@
 #' \item \code{R} A length two for the quantile used to calculate recruitment in the year following the terminal year and the number of years
 #' from which that quantile is used, i.e., \code{c(0.5, 5)} is the default that calculates median recruitment from the most recent 5 years of the model.
 #' }
-#' @param nitF The number of iterations for solving F in the model (via Newton's method).
+#' @param n_itF The number of iterations for solving F in the model (via Newton's method).
 #' @param min_age An integer to specify the smallest age class in the VPA. By default, the youngest age with non-zero CAA in the terminal year is used.
 #' @param max_age An integer to specify the oldest age class in the VPA. By default, the oldest age with non-zero CAA for all years is used.
 #' @param silent Logical, passed to \code{\link[TMB]{MakeADFun}}, whether TMB
@@ -72,19 +72,25 @@
 #' MSY and depletion reference points are calculated by fitting the stock recruit relationship to the recruitment and SSB estimates. Per-recruit
 #' quantities are also calculated, which may be used in harvest control rules.
 #' 
+#' @section Online Documentation:
+#' Model description and equations are available on the openMSE 
+#' \href{https://openmse.com/features-assessment-models/4-vpa/}{website}.
+#' 
 #' @return An object of class \linkS4class{Assessment}. The F vector is the apical fishing mortality experienced by any
-#' age class in a given year. The U vector is the ratio of catch (weight) and vulnerable biomass, which may be a better
-#' description of fishing pressure (and UMSY = MSY/VBMSY).
+#' age class in a given year. 
+#' @examples
+#' out <- VPA(x = 2, Data = MSEtool::SimulatedData, vulnerability = "dome")
 #' @references
 #' Porch, C.E. 2018. VPA-2BOX 4.01 User Guide. NOAA Tech. Memo. NMFS-SEFSC-726. 67 pp.
 #' @export
 VPA <- function(x = 1, Data, AddInd = "B", expanded = FALSE, SR = c("BH", "Ricker"), vulnerability = c("logistic", "dome", "free"),
-                start = list(), fix_h = TRUE, fix_Fratio = TRUE, fix_Fterm = FALSE, LWT = NULL, shrinkage = list(), nitF = 5L,
+                start = list(), fix_h = TRUE, fix_Fratio = TRUE, fix_Fterm = FALSE, LWT = NULL, shrinkage = list(), n_itF = 5L,
                 min_age = "auto", max_age = "auto", refpt = list(),
                 silent = TRUE, opt_hess = FALSE, n_restart = ifelse(opt_hess, 0, 1),
                 control = list(iter.max = 2e5, eval.max = 4e5), ...) {
   dependencies <- "Data@Cat, Data@CAA, Data@Ind, Data@Mort, Data@L50, Data@L95, Data@CAA, Data@vbK, Data@vbLinf, Data@vbt0, Data@wla, Data@wlb, Data@MaxAge"
   dots <- list(...)
+  if(!is.null(dots$nitF)) n_itF <- dots$nitF
   start <- lapply(start, eval, envir = environment())
   
   vulnerability <- match.arg(vulnerability)
@@ -206,7 +212,7 @@ VPA <- function(x = 1, Data, AddInd = "B", expanded = FALSE, SR = c("BH", "Ricke
                abs_I = rep(0, nsurvey), nsurvey = nsurvey, LWT = LWT,
                CAA_hist = CAA_hist2, n_y = length(Year), n_age = length(ages),
                M = update_age_schedule(M, ages), weight = LH$WAA, 
-               vul_type_term = vulnerability, nitF = as.integer(nitF),
+               vul_type_term = vulnerability, n_itF = as.integer(n_itF),
                n_vulpen = shrinkage$vul[1], vulpen = shrinkage$vul[2], 
                n_Rpen = shrinkage$R[1], Rpen = shrinkage$R[2])
 
@@ -294,7 +300,7 @@ VPA <- function(x = 1, Data, AddInd = "B", expanded = FALSE, SR = c("BH", "Ricke
   Yearplusone <- c(Year, max(Year) + 1)
 
   Assessment <- new("Assessment", Model = "VPA",
-                    Name = Data@Name, conv = !is.character(SD) && SD$pdHess,
+                    Name = Data@Name, conv = SD$pdHess,
                     FMort = structure(report$F, names = Year),
                     B = structure(report$B, names = Yearplusone), SSB = structure(report$E, names = Yearplusone),
                     VB = structure(report$VB, names = Yearplusone),
@@ -312,9 +318,9 @@ VPA <- function(x = 1, Data, AddInd = "B", expanded = FALSE, SR = c("BH", "Ricke
                     dependencies = dependencies)
 
   if(Assessment@conv) {
-    ref_pt <- ref_pt_SCA2(E = report$E[1:(length(report$E)-min_age)], R = report$N[(min_age + 1):length(report$E), 1], 
-                          weight = info$data$weight, mat = info$LH$mat, M = info$data$M, vul = report$vul_p, 
-                          SR = SR, fix_h = fix_h, h = ifelse(fix_h, Data@steep[x], NA_real_)) 
+    ref_pt <- ref_pt_VPA(E = report$E[1:(length(report$E)-min_age)], R = report$N[(min_age + 1):length(report$E), 1], 
+                         weight = info$data$weight, mat = info$LH$mat, M = info$data$M, vul = report$vul_p, 
+                         SR = SR, fix_h = fix_h, h = ifelse(fix_h, Data@steep[x], NA_real_)) 
     report <- c(report, ref_pt[-17])
 
     #Z_mat <- t(report$F) + data$M
@@ -378,3 +384,78 @@ VPA_posthoc <- function(report, info) { # Calculate Terminal year + 1 abundance
   return(report)
 }
 
+
+ref_pt_VPA <- function(E, R, weight, mat, M, vul, SR, fix_h, h) {
+  # Per-recruit quantities
+  maxage <- length(M)
+  surv0 <- exp(-M)
+  NPR0 <- c(1, cumprod(surv0[1:(maxage-1)]))
+  NPR0[maxage] <- NPR0[maxage]/(1 - exp(-M[maxage]))
+  EPR0 <- sum(NPR0 * weight * mat)
+  
+  # Fit stock-recruit curve
+  Rpred <- sigmaR <- NULL
+  solve_SR_par <- function(x, h = NULL) {
+    R0 <- exp(x[1])
+    E0 <- R0 * EPR0
+    if(!fix_h) {
+      if(SR == "BH") h <- 0.2 + 0.8 * ilogit(x[2])
+      if(SR == "Ricker") h <- 0.2 + exp(x[2])
+    }
+    if(SR == "BH") Rpred <<- (0.8 * R0 * h * E)/(0.2 * EPR0 * R0 *(1-h)+(h-0.2)*E)
+    if(SR == "Ricker") Rpred <<- E/EPR0 * (5*h)^(1.25 * (1 - E/E0))
+    sigmaR <<- sqrt(sum((log(R/Rpred))^2)/length(Rpred))
+    nLL <- -sum(dnorm(log(R/Rpred), -0.5 * sigmaR^2, sigmaR, log = TRUE))
+    return(nLL)
+  }
+  
+  if(fix_h) {
+    opt <- optimize(solve_SR_par, interval = c(-10, 10), h = h)$minimum
+    R0 <- exp(opt)
+  } else {
+    opt <- nlminb(c(10, 10), solve_SR_par)
+    R0 <- exp(opt$par[1])
+    if(SR == "BH") h <- 0.2 + 0.8 * ilogit(opt$par[2])
+    if(SR == "Ricker") h <- 0.2 + exp(opt$par[2])
+  }
+  
+  # Virgin reference points
+  N0 <- R0 * sum(NPR0)
+  E0 <- R0 * EPR0
+  VB0 <- R0 * sum(NPR0 * weight * vul)
+  B0 <- R0 * sum(NPR0 * weight)
+  
+  # Steepness
+  if(SR == "BH") {
+    Arec <- 4*h/(1-h)/EPR0
+    Brec <- (5*h-1)/(1-h)/E0
+  }
+  if(SR == "Ricker") {
+    Arec <- 1/EPR0 * (5*h)^1.25
+    Brec <- 1.25 * log(5*h) / E0
+  }
+  
+  opt2 <- optimize(yield_fn_SCA, interval = c(1e-4, 4), M = M, mat = mat, weight = weight, vul = vul, 
+                   SR = SR, Arec = Arec, Brec = Brec)
+  opt3 <- yield_fn_SCA(opt2$minimum, M = M, mat = mat, weight = weight, vul = vul, SR = SR, 
+                       Arec = Arec, Brec = Brec, opt = FALSE)
+  
+  FMSY <- opt2$minimum
+  MSY <- -1 * opt2$objective
+  VBMSY <- opt3["VB"]
+  RMSY <- opt3["R"]
+  BMSY <- opt3["B"]
+  EMSY <- opt3["E"]
+  
+  Fvec <- seq(0, 2.5 * FMSY, length.out = 100)
+  yield <- lapply(Fvec,
+                  yield_fn_SCA, M = M, mat = mat, weight = weight, vul = vul, SR = SR, 
+                  Arec = Arec, Brec = Brec, opt = FALSE)
+  SPR <- vapply(yield, getElement, numeric(1), "SPR")
+  YPR <- vapply(yield, getElement, numeric(1), "YPR")
+  
+  refpt_unfished <- list(h = h, Arec = Arec, Brec = Brec, E0 = E0, R0 = R0, N0 = N0, VB0 = VB0, B0 = B0, EPR0 = EPR0, NPR0 = NPR0)
+  refpt_MSY <- list(FMSY = FMSY, MSY = MSY, VBMSY = VBMSY, RMSY = RMSY, BMSY = BMSY, EMSY = EMSY,
+                    per_recruit = data.frame(FM = Fvec, SPR = SPR/SPR[1], YPR = YPR))
+  return(c(refpt_unfished, refpt_MSY))
+}

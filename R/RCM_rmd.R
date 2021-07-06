@@ -13,7 +13,7 @@ rmd_matplot <- function(x, y, col, xlab, ylab, legend.lab, type = "l", lty = 1, 
            paste0("matplot(xx, yy, type = \"", type, "\", lty = ", lty, ", col = ", col,
                   ", ylim = c(0, 1.1 * max(yy, na.rm = TRUE)), xlab = \"", xlab, "\", ylab = \"", ylab, "\")"),
            "abline(h = 0, col = \"grey\")",
-           paste0("if(ncol(xx) > 1) legend(\"topleft\", ", legend.lab, ", text.col = ", col, ")"),
+           paste0("if(ncol(yy) > 1) legend(\"topleft\", ", legend.lab, ", text.col = ", col, ")"),
            " ```\n")
   if(!is.null(header)) ans <- c(header, ans)
   return(ans)
@@ -107,7 +107,7 @@ rmd_RCM_sel <- function(fig.cap = "Operating model selectivity among simulations
   c(paste0("```{r, fig.cap = \"", fig.cap, "\"}"),
     "if(nsel_block == 1) {",
     "  vul <- do.call(cbind, lapply(report_list, getElement, \"vul_len\"))",
-    "  matplot(length_bin, vul, type = \"l\", col = \"black\",",
+    "  matplot(RCMdata@Misc$lbinmid, vul, type = \"l\", col = \"black\",",
     "          xlab = \"Length\", ylab = \"Selectivity (last historical year)\", ylim = c(0, 1.1))",
     "} else {",
     "  if(nsim == 1) V_plot <- matrix(OM@cpars$V[, , nyears], 1, byrow = TRUE) else V_plot <- OM@cpars$V[, , nyears]",
@@ -122,20 +122,20 @@ rmd_RCM_fleet_output <- function(ff, f_name) {
   if(ff == 1) header <- "## RCM output {.tabset}\n" else header <- NULL
   ans <- c(paste("### ", f_name[ff], "\n"),
            paste0("```{r, fig.cap = \"Selectivity of ", f_name[ff], ".\"}"),
-           paste0("bl <- unique(data$sel_block[, ", ff, "])"),
+           paste0("bl <- unique(RCMdata@sel_block[, ", ff, "])"),
            "vul_bb <- list()",
            "bl_col <- gplots::rich.colors(length(bl))",
            "Year_legend <- character(length(bl))",
            "for(bb in 1:length(bl)) {",
            "  vul_bb[[bb]] <- do.call(cbind, lapply(report_list, function(x) x$vul_len[, bl[bb]]))",
-           paste0("  Year_legend[bb] <- Year[data$sel_block[, ", ff, "] == bl[bb]] %>% range() %>% paste(collapse = \"-\")"),
+           paste0("  Year_legend[bb] <- Year[RCMdata@sel_block[, ", ff, "] == bl[bb]] %>% range() %>% paste(collapse = \"-\")"),
            "}",
            "test <- vapply(vul_bb, function(x) all(!is.na(x)), logical(1))",
            "if(all(test)) {",
-           paste0("  matplot(length_bin, length_bin, type = \"n\", xlab = \"Length\", ylim = c(0, 1), ylab = \"Selectivity of Fleet ", ff, "\")"),
+           paste0("  matplot(RCMdata@Misc$lbinmid, RCMdata@Misc$lbinmid, type = \"n\", xlab = \"Length\", ylim = c(0, 1), ylab = \"Selectivity of Fleet ", ff, "\")"),
            "  abline(h = 0, col = \"grey\")",
            "  for(bb in 1:length(bl)) {",
-           "    matlines(length_bin, vul_bb[[bb]], type = \"l\", col = bl_col[bb], lty = scenario$lty, lwd = scenario$lwd)",
+           "    matlines(RCMdata@Misc$lbinmid, vul_bb[[bb]], type = \"l\", col = bl_col[bb], lty = scenario$lty, lwd = scenario$lwd)",
            "  }",
            "  if(length(bl) > 1) legend(\"topright\", Year_legend, col = bl_col, lwd = 1)",
            #"if(!is.null(scenario$names)) legend("topleft", scenario$names, col = scenario$col2, lty = scenario$lty, lwd = scenario$lwd)",
@@ -147,7 +147,7 @@ rmd_RCM_fleet_output <- function(ff, f_name) {
            "abline(h = 0, col = \"grey\")",
            "",
            "for(bb in 1:length(bl)) {",
-           paste0("  vul_bb_age <- do.call(rbind, lapply(report_list, function(x) x$vul[data$sel_block[, ", ff, "] == bl[bb], , ", ff, "])) %>% t()"),
+           paste0("  vul_bb_age <- do.call(rbind, lapply(report_list, function(x) x$vul[RCMdata@sel_block[, ", ff, "] == bl[bb], , ", ff, "])) %>% t()"),
            "  matlines(age, vul_bb_age, type = \"l\", col = bl_col[bb], lty = scenario$lty, lwd = scenario$lwd)",
            "}",
            "if(length(bl) > 1) legend(\"topleft\", Year_legend, col = bl_col, lwd = 1)",
@@ -162,9 +162,9 @@ rmd_RCM_fleet_output <- function(ff, f_name) {
            "```\n",
            "",
            paste0("```{r, fig.cap = \"Observed (black) and predicted (red) catch from ", f_name[ff], ".\"}"),
-           paste0("if(any(data$Chist[, ", ff, "] > 0)) {"),
+           paste0("if(any(RCMdata@Chist[, ", ff, "] > 0)) {"),
            paste0("  Cpred <- do.call(cbind, lapply(report_list, function(x) x$Cpred[, ", ff, "]))"),
-           paste0("  Chist <- data$Chist[, ", ff, "]"),
+           paste0("  Chist <- RCMdata@Chist[, ", ff, "]"),
            "  ylim <- c(0.9, 1.1) * range(c(Cpred, Chist), na.rm = TRUE)",
            paste0("  plot(Year, Chist, type = \"o\", xlab = \"Year\", ylab = \"Catch of ", f_name[ff], "\", ylim = ylim)"),
            paste0("  matlines(Year, Cpred, col = scenario$col, lty = scenario$lty, lwd = scenario$lwd)"),
@@ -178,10 +178,10 @@ rmd_RCM_fleet_output <- function(ff, f_name) {
            "",
            paste0("```{r, fig.cap = \"Observed (black) and predicted (red) mean ages from ", f_name[ff], ".\"}"),
            paste0("MApred <- do.call(cbind, lapply(report_list, function(x) x$CAApred[, , ", ff, "] %*% age/x$CN[, ", ff, "]))"),
-           paste0("MAobs <- (data$CAA[, , ", ff, "] %*% age)/rowSums(data$CAA[, , ", ff, "], na.rm = TRUE)"),
+           paste0("MAobs <- (RCMdata@CAA[, , ", ff, "] %*% age)/rowSums(RCMdata@CAA[, , ", ff, "], na.rm = TRUE)"),
            "ylim <- c(0.9, 1.1) * range(c(MApred, MAobs), na.rm = TRUE)",
            "matplot(Year, MApred, type = \"l\", col = scenario$col, lty = scenario$lty, lwd = scenario$lwd, xlab = \"Year\", ylab = \"Mean age\", ylim = ylim)",
-           paste0("if(any(data$CAA[, , ", ff, "] > 0, na.rm = TRUE)) {"),
+           paste0("if(any(RCMdata@CAA[, , ", ff, "] > 0, na.rm = TRUE)) {"),
            paste0("  lines(Year, MAobs, col = \"black\", typ = \"o\")"),
            "}",
            "if(!is.null(scenario$names)) legend(\"topleft\", scenario$names, col = scenario$col, lty = scenario$lty, lwd = scenario$lwd)",
@@ -189,9 +189,9 @@ rmd_RCM_fleet_output <- function(ff, f_name) {
            "",
            paste0("```{r, fig.cap = \"Observed (black) and predicted (red) mean lengths from ", f_name[ff], ".\"}"),
            paste0("MLpred <- do.call(cbind, lapply(report_list, function(x) x$MLpred[, ", ff, "]))"),
-           paste0("if(any(data$CAL[, , ", ff, "] > 0, na.rm = TRUE)) {"),
-           paste0("  MLobs <- (data$CAL[, , ", ff, "] %*% length_bin)/rowSums(data$CAL[, , ", ff, "], na.rm = TRUE)"),
-           paste0("} else if(data$MS_type == \"length\" && any(data$MS[, ", ff, "] > 0, na.rm = TRUE)) MLobs <- data$MS[, ", ff, "] else MLobs <- NA"),
+           paste0("if(any(RCMdata@CAL[, , ", ff, "] > 0, na.rm = TRUE)) {"),
+           paste0("  MLobs <- (RCMdata@CAL[, , ", ff, "] %*% RCMdata@Misc$lbinmid)/rowSums(RCMdata@CAL[, , ", ff, "], na.rm = TRUE)"),
+           paste0("} else if(RCMdata@MS_type == \"length\" && any(RCMdata@MS[, ", ff, "] > 0, na.rm = TRUE)) MLobs <- RCMdata@MS[, ", ff, "] else MLobs <- NA"),
            "if(!all(is.na(MLpred))) {",
            "  ylim <- c(0.9, 1.1) * range(c(MLpred, MLobs), na.rm = TRUE)",
            "  matplot(Year, MLpred, type = \"l\", col = scenario$col, lty = scenario$lty, lwd = scenario$lwd, xlab = \"Year\", ylab = \"Mean length\", ylim = ylim)",
@@ -201,8 +201,8 @@ rmd_RCM_fleet_output <- function(ff, f_name) {
            "```\n",
            "",
            paste0("```{r, fig.cap = \"Observed (black) and predicted (red) mean weights from ", f_name[ff], ".\"}"),
-           paste0("if(data$MS_type == \"weight\" && any(data$MS[, ", ff, "] > 0, na.rm = TRUE)) {"),
-           paste0("  MWobs <- data$MS[, ", ff, "]"),
+           paste0("if(RCMdata@MS_type == \"weight\" && any(RCMdata@MS[, ", ff, "] > 0, na.rm = TRUE)) {"),
+           paste0("  MWobs <- RCMdata@MS[, ", ff, "]"),
            paste0("} else MWobs <- NA"),
            "if(!all(is.na(MWobs))) {",
            paste0("  MWpred <- do.call(cbind, lapply(report_list, function(x) x$MWpred[, ", ff, "]))"),
@@ -214,40 +214,40 @@ rmd_RCM_fleet_output <- function(ff, f_name) {
            "```\n",
            "",
            paste0("```{r, fig.cap = \"Observed (black) and predicted (red) age composition from ", f_name[ff], ".\"}"),
-           paste0("if(any(data$CAA[, , ", ff, "] > 0, na.rm = TRUE)) {"),
+           paste0("if(any(RCMdata@CAA[, , ", ff, "] > 0, na.rm = TRUE)) {"),
            paste0("if(nsim == 1) CAA_plot <- array(x@CAA[, , , ", ff, "], c(1, nyears, max_age + 1)) else CAA_plot <- x@CAA[, , , ", ff, "]"),
-           paste0("plot_composition_RCM(Year, CAA_plot, data$CAA[, , ", ff, "], ages = age, dat_col = scenario$col)"),
+           paste0("plot_composition_RCM(Year, CAA_plot, RCMdata@CAA[, , ", ff, "], ages = age, dat_col = scenario$col)"),
            "}",
            "```\n",
            paste0("```{r, fig.cap = \"Predicted age composition from fleet ", ff, ".\"}"),
-           paste0("if(any(data$CAA[, , ", ff, "] > 0, na.rm = TRUE)) {"),
+           paste0("if(any(RCMdata@CAA[, , ", ff, "] > 0, na.rm = TRUE)) {"),
            paste0("plot_composition_RCM(Year, CAA_plot, ages = age, dat_col = scenario$col)"),
            "}",
            "```\n",
            "",
            paste0("```{r, fig.cap = \"Observed (black) and predicted (red) length composition from ", f_name[ff], ".\"}"),
-           paste0("if(any(data$CAL[, , ", ff, "] > 0, na.rm = TRUE)) {"),
-           paste0("if(nsim == 1) CAL_plot <- array(x@CAL[, , , ", ff, "], c(1, nyears, length(data$length_bin))) else CAL_plot <- x@CAL[, , , ", ff, "]"),
-           paste0("plot_composition_RCM(Year, CAL_plot, data$CAL[, , ", ff, "], CAL_bins = data$length_bin, dat_col = scenario$col)"),
+           paste0("if(any(RCMdata@CAL[, , ", ff, "] > 0, na.rm = TRUE)) {"),
+           paste0("if(nsim == 1) CAL_plot <- array(x@CAL[, , , ", ff, "], c(1, nyears, RCMdata@Misc$nlbin)) else CAL_plot <- x@CAL[, , , ", ff, "]"),
+           paste0("plot_composition_RCM(Year, CAL_plot, RCMdata@CAL[, , ", ff, "], CAL_bins = RCMdata@Misc$lbin_mid, dat_col = scenario$col)"),
            "}",
            "```\n",
            "",
            paste0("```{r, fig.cap = \"Predicted length composition from ", f_name[ff], ".\"}"),
-           paste0("if(any(data$CAL[, , ", ff, "] > 0, na.rm = TRUE)) {"),
-           paste0("plot_composition_RCM(Year, CAL_plot, CAL_bins = data$length_bin, dat_col = scenario$col)"),
+           paste0("if(any(RCMdata@CAL[, , ", ff, "] > 0, na.rm = TRUE)) {"),
+           paste0("plot_composition_RCM(Year, CAL_plot, CAL_bins = RCMdata@Misc$lbinmid, dat_col = scenario$col)"),
            "}",
            "```\n")
   
   c(header, ans)
 }
 
-rmd_RCM_survey_output <- function(sur, s_name) {
+rmd_RCM_index_output <- function(sur, s_name) {
   ans <- c(paste0("### ", s_name[sur], " \n"),
            "",
            paste0("```{r, fig.cap = \"Selectivity of ", s_name[sur], " in last historical year.\"}"),
-           "if(!is.null(report_list[[1]]$s_vul)) {",
-           paste0("s_vul_ff_age <- do.call(cbind, lapply(report_list, function(x) x$s_vul[nyears, , ", sur, "]))"),
-           paste0("matplot(age, s_vul_ff_age, type = \"l\", col = scenario$col2, xlab = \"Age\", ylim = c(0, 1), ylab = \"Selectivity of ", s_name[sur], "\")"),
+           "if(!is.null(report_list[[1]]$ivul)) {",
+           paste0("ivul_ff_age <- do.call(cbind, lapply(report_list, function(x) x$ivul[nyears, , ", sur, "]))"),
+           paste0("matplot(age, ivul_ff_age, type = \"l\", col = scenario$col2, xlab = \"Age\", ylim = c(0, 1), ylab = \"Selectivity of ", s_name[sur], "\")"),
            "abline(h = 0, col = \"grey\")",
            "if(!is.null(scenario$names)) legend(\"topleft\", scenario$names, col = scenario$col2, lty = scenario$lty, lwd = scenario$lwd)",
            "}",
@@ -255,17 +255,17 @@ rmd_RCM_survey_output <- function(sur, s_name) {
            "",
            paste0("```{r, fig.cap = \"Observed (black) and predicted (red) index values for ", s_name[sur], ".\"}"),
            paste0("Ipred <- do.call(cbind, lapply(report_list, function(x) x$Ipred[, ", sur, "]))"),
-           paste0("matplot(Year, Ipred, type = \"l\", col = scenario$col, lty = scenario$lty, lwd = scenario$lwd, ylim = c(0, 1.1 * max(c(Ipred, data$Index[, ", sur, "]), na.rm = TRUE)), xlab = \"Year\", ylab = \"", s_name[sur], "\")"),
-           paste0("lines(Year, data$Index[, ", sur, "], col = \"black\", typ = \"o\")"),
+           paste0("matplot(Year, Ipred, type = \"l\", col = scenario$col, lty = scenario$lty, lwd = scenario$lwd, ylim = c(0, 1.1 * max(c(Ipred, RCMdata@Index[, ", sur, "]), na.rm = TRUE)), xlab = \"Year\", ylab = \"", s_name[sur], "\")"),
+           paste0("lines(Year, RCMdata@Index[, ", sur, "], col = \"black\", typ = \"o\")"),
            "abline(h = 0, col = \"grey\")",
            "if(!is.null(scenario$names)) legend(\"topleft\", scenario$names, col = scenario$col, lty = scenario$lty, lwd = scenario$lwd)",
            "```\n",
            "",
            paste0("```{r, fig.cap = \"Observed (black) and predicted (red) index values for ", s_name[sur], ". Error bars indicate 95% confidence intervals for observed values.\"}"),
-           "if(!is.null(data$I_sd)) {",
-           paste0("  II <- data$Index[, ", sur, "]"),
+           "if(length(RCMdata@I_sd) && any(RCMdata@I_sd > 0, na.rm = TRUE)) {",
+           paste0("  II <- RCMdata@Index[, ", sur, "]"),
            "  ind <- seq(min(which(!is.na(II))), max(which(!is.na(II))), 1)",
-           paste0("  err <- exp(log(II) + outer(data$I_sd[, ", sur, "], c(-1.96, 1.96)))"),
+           paste0("  err <- exp(log(II) + outer(RCMdata@I_sd[, ", sur, "], c(-1.96, 1.96)))"),
            paste0("  matplot(Year[ind], Ipred[ind, ], type = \"l\", col = scenario$col, lty = scenario$lty, lwd = scenario$lwd, ylim = c(0, 1.1 * max(c(Ipred[ind, ], II[ind], err[ind, ]), na.rm = TRUE)), xlab = \"Year\", ylab = \"", s_name[sur], "\")"),
            "  points(Year[ind], II[ind], lwd = 3, pch = 16)",
            "  arrows(Year[ind], y0 = err[ind, 1], y1 = err[ind, 2], length = 0, lwd = 1.5)",
@@ -275,12 +275,12 @@ rmd_RCM_survey_output <- function(sur, s_name) {
            "```\n",
            "",
            paste0("```{r, fig.cap = \"Observed (black) and predicted (red) mean ages from ", s_name[sur], ".\"}"),
-           paste0("if(!is.null(data$s_CAA) && any(data$s_CAA[, , ", sur, "] > 0, na.rm = TRUE)) {"),
-           paste0("MApred <- do.call(cbind, lapply(report_list, function(x) x$s_CAApred[, , ", sur, "] %*% age/rowSums(x$N[1:nyears, ] * x$s_vul[1:nyears, , ", sur, "])))"),
-           paste0("MAobs <- (data$s_CAA[, , ", sur, "] %*% age)/rowSums(data$s_CAA[, , ", sur, "], na.rm = TRUE)"),
+           paste0("if(length(RCMdata@IAA) && any(RCMdata@IAA[, , ", sur, "] > 0, na.rm = TRUE)) {"),
+           paste0("MApred <- do.call(cbind, lapply(report_list, function(x) x$IAApred[, , ", sur, "] %*% age/rowSums(x$N[1:nyears, ] * x$ivul[1:nyears, , ", sur, "])))"),
+           paste0("MAobs <- (RCMdata@IAA[, , ", sur, "] %*% age)/rowSums(RCMdata@IAA[, , ", sur, "], na.rm = TRUE)"),
            "ylim <- c(0.9, 1.1) * range(c(MApred, MAobs), na.rm = TRUE)",
            "matplot(Year, MApred, type = \"l\", col = scenario$col, lty = scenario$lty, lwd = scenario$lwd, xlab = \"Year\", ylab = \"Mean age\", ylim = ylim)",
-           paste0("if(any(data$s_CAA[, , ", sur, "] > 0, na.rm = TRUE)) {"),
+           paste0("if(any(RCMdata@IAA[, , ", sur, "] > 0, na.rm = TRUE)) {"),
            paste0("  lines(Year, MAobs, col = \"black\", typ = \"o\")"),
            "}",
            "if(!is.null(scenario$names)) legend(\"topleft\", scenario$names, col = scenario$col, lty = scenario$lty, lwd = scenario$lwd)",
@@ -288,12 +288,12 @@ rmd_RCM_survey_output <- function(sur, s_name) {
            "```\n",
            "",
            paste0("```{r, fig.cap = \"Observed (black) and predicted (red) mean lengths from ", s_name[sur], ".\"}"),
-           paste0("if(!is.null(data$s_CAL) && any(data$s_CAL[, , ", sur, "] > 0, na.rm = TRUE)) {"),
-           paste0("MLpred <- do.call(cbind, lapply(report_list, function(x) x$s_CALpred[, , ", sur, "] %*% length_bin/rowSums(x$N[1:nyears, ] * x$s_vul[1:nyears, , ", sur, "])))"),
-           paste0("MLobs <- (data$s_CAL[, , ", sur, "] %*% length_bin)/rowSums(data$s_CAL[, , ", sur, "], na.rm = TRUE)"),
+           paste0("if(length(RCMdata@IAL) && any(RCMdata@IAL[, , ", sur, "] > 0, na.rm = TRUE)) {"),
+           paste0("MLpred <- do.call(cbind, lapply(report_list, function(x) x$IALpred[, , ", sur, "] %*% RCMdata@Misc$lbinmid/rowSums(x$N[1:nyears, ] * x$ivul[1:nyears, , ", sur, "])))"),
+           paste0("MLobs <- (RCMdata@IAL[, , ", sur, "] %*% RCMdata@Misc$lbinmid)/rowSums(RCMdata@IAL[, , ", sur, "], na.rm = TRUE)"),
            "ylim <- c(0.9, 1.1) * range(c(MLpred, MLobs), na.rm = TRUE)",
            "matplot(Year, MLpred, type = \"l\", col = scenario$col, lty = scenario$lty, lwd = scenario$lwd, xlab = \"Year\", ylab = \"Mean length\", ylim = ylim)",
-           paste0("if(any(data$s_CAL[, , ", sur, "] > 0, na.rm = TRUE)) {"),
+           paste0("if(any(RCMdata@IAL[, , ", sur, "] > 0, na.rm = TRUE)) {"),
            paste0("  lines(Year, MLobs, col = \"black\", typ = \"o\")"),
            "}",
            "if(!is.null(scenario$names)) legend(\"topleft\", scenario$names, col = scenario$col, lty = scenario$lty, lwd = scenario$lwd)",
@@ -301,16 +301,16 @@ rmd_RCM_survey_output <- function(sur, s_name) {
            "```\n",
            "",
            paste0("```{r, fig.cap = \"Observed (black) and predicted (red) age composition from ", s_name[sur], ".\"}"),
-           paste0("if(!is.null(data$s_CAA) && any(data$s_CAA[, , ", sur, "] > 0, na.rm = TRUE)) {"),
-           paste0("pred_sCAA <- lapply(report_list, function(x) x$s_CAA[,, ", sur, "]) %>% simplify2array() %>% aperm(perm = c(3, 1, 2))"),
-           paste0("plot_composition_RCM(Year, pred_sCAA, data$s_CAA[, , ", sur, "], ages = age, dat_col = scenario$col)"),
+           paste0("if(length(RCMdata@IAA) && any(RCMdata@IAA[, , ", sur, "] > 0, na.rm = TRUE)) {"),
+           paste0("pred_sCAA <- lapply(report_list, function(x) x$IAA[,, ", sur, "]) %>% simplify2array() %>% aperm(perm = c(3, 1, 2))"),
+           paste0("plot_composition_RCM(Year, pred_sCAA, RCMdata@IAA[, , ", sur, "], ages = age, dat_col = scenario$col)"),
            "}",
            "```\n",
            "",
            paste0("```{r, fig.cap = \"Observed (black) and predicted (red) length composition from ", s_name[sur], ".\"}"),
-           paste0("if(!is.null(data$s_CAL) && any(data$s_CAL[, , ", sur, "] > 0, na.rm = TRUE)) {"),
-           paste0("pred_sCAL <- lapply(report_list, function(x) x$s_CAL[,, ", sur, "]) %>% simplify2array() %>% aperm(perm = c(3, 1, 2))"),
-           paste0("plot_composition_RCM(Year, pred_sCAL, data$s_CAL[, , ", sur, "], CAL_bins = data$length_bin, dat_col = scenario$col)"),
+           paste0("if(length(RCMdata@IAL) && any(RCMdata@IAL[, , ", sur, "] > 0, na.rm = TRUE)) {"),
+           paste0("pred_sCAL <- lapply(report_list, function(x) x$IAL[,, ", sur, "]) %>% simplify2array() %>% aperm(perm = c(3, 1, 2))"),
+           paste0("plot_composition_RCM(Year, pred_sCAL, RCMdata@IAL[, , ", sur, "], CAL_bins = RCMdata@Misc$lbinmid, dat_col = scenario$col)"),
            "}",
            "```\n"
   )
@@ -366,14 +366,42 @@ rmd_log_rec_dev <- function() {
     "```\n")
 }
 
+rmd_RCM_SPR <- function() {
+  c("```{r, fig.cap = \"Equilibrium spawning potential ratio (SPR) calculated from the biological parameters and F-at-age in the corresponding year for all simulations.\"}",
+    "SPR_eq <- do.call(cbind, lapply(report_list, getElement, \"SPR_eq\"))",
+    "matplot(Year, SPR_eq, type = \"n\", ylim = c(0, 1), xlab = \"Year\", ylab = \"Equilibrium SPR\")",
+    "abline(h = 0, col = \"grey\")",
+    "matlines(Year, SPR_eq, col = scenario$col2, lty = scenario$lty, lwd = scenario$lwd)",
+    "if(!is.null(scenario$names)) legend(\"topleft\", scenario$names, col = scenario$col2, lty = scenario$lty, lwd = scenario$lwd)",
+    "```\n",
+    "",
+    "```{r, fig.cap = \"Dynamic spawning potential ratio (SPR) calculated from the biological parameters and cumulative survival of the cohorts in the corresponding year for all simulations.\"}",
+    "SPR_dyn <- do.call(cbind, lapply(report_list, getElement, \"SPR_dyn\"))",
+    "matplot(Year, SPR_dyn, type = \"n\", ylim = c(0, 1), xlab = \"Year\", ylab = \"Dynamic SPR\")",
+    "abline(h = 0, col = \"grey\")",
+    "matlines(Year, SPR_dyn, col = scenario$col2, lty = scenario$lty, lwd = scenario$lwd)",
+    "if(!is.null(scenario$names)) legend(\"topleft\", scenario$names, col = scenario$col2, lty = scenario$lty, lwd = scenario$lwd)",
+    "```\n")
+}
+
+rmd_RCM_SPR2 <- function() {
+  c("```{r, fig.cap = \"Annual spawning potential ratio (SPR). Equilibrium SPR is calculated from the F-at-age in the corresponding year, while dynamic SPR is calculated from the cumulative survival of cohorts.\"}",
+    "plot(Year, report$SPR_eq, typ = \"o\", lty = 3, ylim = c(0, 1), xlab = \"Year\", ylab = \"Spawning potential ratio\")",
+    "lines(Year, report$SPR_dyn, typ = \"o\", pch = 16)",
+    "legend(\"bottomleft\", c(\"Equilibrium SPR\", \"Dynamic SPR\"), lty = c(3, 1), pch = c(1, 16))",
+    "abline(h = 0, col = \"grey\")",
+    "```\n")
+}
+
+
 rmd_RCM_SR <- function() {
   c("```{r, fig.cap = \"Stock-recruit relationship and estimated recruitment.\"}",
     "if(OM@SRrel == 1) {",
-    "  expectedR <- report$Arec * report$E[1:nyears] / (1 + report$Brec * report$E[1:nyears])",
+    "  expectedR <- report$Arec * report$E / (1 + report$Brec * report$E)",
     "} else {",
-    "  expectedR <- report$Arec * report$E[1:nyears] * exp(-report$Brec * report$E[1:nyears])",
+    "  expectedR <- report$Arec * report$E * exp(-report$Brec * report$E)",
     "}",
-    "plot_SR(report$E[1:nyears], expectedR, report$R0, report$E0_SR, report$R[2:(nyears+1)])",
+    "plot_SR(report$E, expectedR, report$R0, report$E0_SR, report$R)",
     "```\n")
 }
 
@@ -488,15 +516,15 @@ rmd_RCM_Hist_compare <- function() {
     "",
     "```{r, fig.cap = \"Comparison of total removals between the OM and RCM.\"}",
     "matplot(Year, t(Hist_C), typ = \"o\", col = \"red\", pch = 16, xlab = \"Year\", ylab = \"Total removals\",",
-    "        ylim = c(0, 1.1 * max(c(Hist_C, data$Chist, na.rm = TRUE))))",
-    "lines(Year, rowSums(data$Chist, na.rm = TRUE), col = \"black\")",
+    "        ylim = c(0, 1.1 * max(c(Hist_C, RCMdata@Chist, na.rm = TRUE))))",
+    "lines(Year, rowSums(RCMdata@Chist, na.rm = TRUE), col = \"black\")",
     "abline(h = 0, col = \"grey\")",
     "legend(\"topleft\", c(\"RCM\", \"OM\"), col = c(\"black\", \"red\"), pch = c(NA_integer_, 16), lwd = c(1, 1), bty = \"n\")",
     "```\n",
     "",
     "```{r, fig.cap = \"Difference in annual catch (relative to observed), calculated as $C^{OM}_y/C^{obs}_y - 1$. Positive values indicate higher catch in the OM. Catch in the OM is the total removals (both landings and discards).\"}",
-    "if(any(data$Chist > 0, na.rm = TRUE)) {",
-    "Catch_difference <- t(Hist_C)/rowSums(data$Chist, na.rm = TRUE) - 1",
+    "if(any(RCMdata@Chist > 0, na.rm = TRUE)) {",
+    "Catch_difference <- t(Hist_C)/rowSums(RCMdata@Chist, na.rm = TRUE) - 1",
     "Catch_difference[is.infinite(Catch_difference)] <- 0",
     "matplot(Year, Catch_difference, typ = \"n\", xlab = \"Year\", ylab = \"Difference in relative catch\")",
     "abline(h = 0, col = \"grey\")",
@@ -579,29 +607,29 @@ RCM_get_likelihoods <- function(x, LWT, f_name, s_name) {
   
   wt_fleet <- rbind(LWT$Chist, LWT$C_eq, LWT$CAA, LWT$CAL, LWT$MS) %>% structure(dimnames = list(rownames(nll_fleet)[1:5], f_name))
   
-  if(inherits(x$nll_survey, "array")) {
-    nll_survey <- apply(x$nll_survey, 2:3, sum) %>% t()
+  if(inherits(x$nll_index, "array")) {
+    nll_index <- apply(x$nll_index, 2:3, sum) %>% t()
   } else {
-    nll_survey <- x$nll_survey %>% t()
+    nll_index <- x$nll_index %>% t()
   }
-  nll_survey[is.na(nll_survey)] <- 0
-  nll_survey <- cbind(nll_survey, rowSums(nll_survey))
-  nll_survey <- rbind(nll_survey, colSums(nll_survey))
-  colnames(nll_survey) <- c(s_name, "Sum")
-  rownames(nll_survey) <- c("Index", "CAA", "CAL", "Sum")
+  nll_index[is.na(nll_index)] <- 0
+  nll_index <- cbind(nll_index, rowSums(nll_index))
+  nll_index <- rbind(nll_index, colSums(nll_index))
+  colnames(nll_index) <- c(s_name, "Sum")
+  rownames(nll_index) <- c("Index", "CAA", "CAL", "Sum")
   
-  wt_survey <- rbind(LWT$Index, LWT$s_CAA, LWT$s_CAL) %>% structure(dimnames = list(rownames(nll_survey)[1:3], s_name))
+  wt_index <- rbind(LWT$Index, LWT$IAA, LWT$IAL) %>% structure(dimnames = list(rownames(nll_index)[1:3], s_name))
   
-  tot <- c(x$nll, x$nll_log_rec_dev, nll_fleet[6, length(f_name) + 1], nll_survey[4, length(s_name) + 1], x$penalty, x$prior) %>% matrix(ncol = 1)
-  dimnames(tot) <- list(c("Total", "Recruitment Deviations", "Fleets", "Surveys", "Penalty (High F)", "Priors"), 
+  tot <- c(x$nll, x$nll_log_rec_dev, nll_fleet[6, length(f_name) + 1], nll_index[4, length(s_name) + 1], x$penalty, x$prior) %>% matrix(ncol = 1)
+  dimnames(tot) <- list(c("Total", "Recruitment Deviations", "Fleets", "Indices", "Penalty (High F)", "Priors"), 
                         "Negative log-likelihood")
   
-  res <- list(tot, nll_fleet, wt_fleet, nll_survey, wt_survey) %>% lapply(FUN = function(xx) xx %>% round(2) %>% as.data.frame())
+  res <- list(tot, nll_fleet, wt_fleet, nll_index, wt_index) %>% lapply(FUN = function(xx) xx %>% round(2) %>% as.data.frame())
   return(res)
 }
 
 
-rmd_RCM_likelihood_gradients <- function(f_name, s_name, do_survey) {
+rmd_RCM_likelihood_gradients <- function(f_name, s_name, do_index) {
   header <- c("```{r}",
               "obj <- x@mean_fit$obj",
               "new_dat <- structure(obj$env$data, check.passed = NULL)",
@@ -628,10 +656,10 @@ rmd_RCM_likelihood_gradients <- function(f_name, s_name, do_survey) {
         "}",
         "```\n\n")
     }
-    survey_lapply_fn <- function(sur) {
+    index_lapply_fn <- function(sur) {
       c(paste("####", s_name[sur], "\n"),
         "```{r, fig.cap = \"Likelihood gradients (annual values by data type in columns) with respect to model parameters (rows).\"}",
-        paste0("gr_plot <- dplyr::filter(gr_survey, Survey == \"", s_name[sur], "\")"),
+        paste0("gr_plot <- dplyr::filter(gr_index, Index == \"", s_name[sur], "\")"),
         "if(nrow(gr_plot)) {",
         "  ggplot2::ggplot(gr_plot, ggplot2::aes(Year, Gradient, group = par, colour = par)) + ggplot2::facet_grid(par_type ~ data_type, scales = \"free_y\") +",
         paste0("  ggplot2::geom_hline(yintercept = 0, linetype = 3) + ggplot2::geom_line() + ggplot2::theme_bw() + ggplot2::theme(legend.position = \"none\") + ggplot2::ggtitle(\"", s_name[sur], "\")"),
@@ -640,8 +668,8 @@ rmd_RCM_likelihood_gradients <- function(f_name, s_name, do_survey) {
     }
     
     f_plots <- lapply(1:length(f_name), fleet_lapply_fn) %>% unlist()
-    if(do_survey) {
-      s_plots <- lapply(1:length(s_name), survey_lapply_fn) %>% unlist()
+    if(do_index) {
+      s_plots <- lapply(1:length(s_name), index_lapply_fn) %>% unlist()
     } else {
       s_plots <- NULL
     }
@@ -652,8 +680,8 @@ rmd_RCM_likelihood_gradients <- function(f_name, s_name, do_survey) {
               "  reshape2::melt(value.name = \"Gradient\") %>% dplyr::left_join(par_names, by = \"par\") %>%",
               "  dplyr::group_by(data_type) %>% dplyr::filter(any(Gradient != 0))",
               "",
-              "gr_survey <- gr[rownames(gr) == \"nll_survey\", ] %>% array(dim = dim(report$nll_survey) %>% c(length(SD$par.fixed))) %>%",
-              "  structure(dimnames = list(Year = Year, Survey = s_name, data_type = c(\"Index\", \"CAA\", \"CAL\"),",
+              "gr_index <- gr[rownames(gr) == \"nll_index\", ] %>% array(dim = dim(report$nll_index) %>% c(length(SD$par.fixed))) %>%",
+              "  structure(dimnames = list(Year = Year, Index = s_name, data_type = c(\"Index\", \"CAA\", \"CAL\"),",
               "                            par = par_names$par)) %>%", 
               "  reshape2::melt(value.name = \"Gradient\") %>% dplyr::left_join(par_names, by = \"par\") %>%",
               "  dplyr::group_by(data_type) %>% dplyr::filter(any(Gradient != 0))",
@@ -664,7 +692,7 @@ rmd_RCM_likelihood_gradients <- function(f_name, s_name, do_survey) {
     jac <- c("#### Linear combos\n",
              "",
              "```{r}",
-             "gr_combo <- gr[rownames(gr) %in% c(\"nll_fleet\", \"nll_survey\"), ] %>% caret::findLinearCombos()",
+             "gr_combo <- gr[rownames(gr) %in% c(\"nll_fleet\", \"nll_index\"), ] %>% caret::findLinearCombos()",
              "if(is.null(gr_combo$remove)) {",
              "  print(\"Jacobian matrix is of full rank, according to caret::findLinearCombos().\")",
              "} else {",

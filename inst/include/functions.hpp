@@ -189,7 +189,29 @@ Type calc_q(matrix<Type> I_y, matrix<Type> B_y, int sur, int ff, matrix<Type> &I
   return q;
 }
 
-
+// For RCM, DD, cDD
+template<class Type>
+Type calc_prior(matrix<int> use_prior, matrix<Type> prior_dist, Type R0, Type h, int SR_type, Type log_M, vector<Type> q) {
+  Type prior = 0;
+  if(use_prior(0)) { // Prior for R0 - normal on log_R0, log Jacobian transform = zero
+    prior += dnorm_(log(R0), prior_dist(0,0), prior_dist(0,1), true);
+  }
+  if(use_prior(1)) { // Prior for h
+    if(SR_type) { // Beverton-Holt - beta on y = (h - 0.2)/0.8 with log Jacobian transform of inverse logit fn
+      Type y = (h - 0.2)/0.8;
+      prior += dbeta_(y, prior_dist(1,0), prior_dist(1,1), true) - log(y - y * y); 
+    } else { // Ricker - normal on h with log Jacobian transform
+      prior += dnorm_(h, prior_dist(1,0), prior_dist(1,1), true) + CppAD::CondExpLt(log(h - 0.2), Type(0), -log(h - 0.2), log(h - 0.2));
+    }
+  }
+  if(use_prior(2)) { // Prior for constant M - normal on log_M
+    prior += dnorm_(log_M, prior_dist(2,0), prior_dist(2,1), true);
+  }
+  for(int i=3;i<use_prior.size();i++) { // Prior for q - normal on log(q)
+    if(use_prior(i)) prior += dnorm_(log(q(i-3)), prior_dist(i,0), prior_dist(i,1), true);
+  }
+  return prior;
+}
 
 //////////// Functions for cDD.h, DD.h, SCA.h
 template<class Type>
@@ -215,11 +237,11 @@ Type Ricker_SR(Type SSB, Type h, Type R0, Type SSB0) {
 }
 
 #include "ns/ns_cDD.hpp"
+#include "ns/ns_DD.hpp"
 #include "ns/ns_SCA.hpp"
 #include "ns/ns_VPA.hpp"
 #include "ns/ns_RCM.hpp"
 #include "ns/ns_SP.hpp"
-
 
 // This is the Newton solver for the fleet-specific F in year y given the observed catches.
 // Let vector x = log(F_y,f)
@@ -228,7 +250,7 @@ Type Ricker_SR(Type SSB, Type h, Type R0, Type SSB0) {
 // We iteratively solve for x where x_next = x_previous - g(x)/g'(x)
 template<class Type>
 vector<Type> Newton_F(matrix<Type> C_hist, matrix<Type> N, matrix<Type> M, matrix<Type> wt, matrix<Type> VB_out, array<Type> vul,
-                          Type max_F, int y, int max_age, int nfleet, int nit_F, Type &penalty) {
+                      Type max_F, int y, int max_age, int nfleet, int n_itF, Type &penalty) {
 
   vector<Type> F_out(nfleet);
   vector<Type> x_loop(nfleet);
@@ -238,7 +260,7 @@ vector<Type> Newton_F(matrix<Type> C_hist, matrix<Type> N, matrix<Type> M, matri
     x_loop(ff) = log(F_start);
   }
 
-  for(int i=0;i<nit_F;i++) { // Loop for Newton-Raphson
+  for(int i=0;i<n_itF;i++) { // Loop for Newton-Raphson
     vector<Type> Z = M.row(y);
     matrix<Type> VB(max_age, nfleet);
     vector<Type> Cpred(nfleet);
@@ -258,7 +280,7 @@ vector<Type> Newton_F(matrix<Type> C_hist, matrix<Type> N, matrix<Type> M, matri
       for(int a=0;a<max_age;a++) Cpred(ff) += VB(a,ff) * F_loop(ff) * (1 - exp(-Z(a)))/Z(a);
     }
 
-    if(i<nit_F-1) {
+    if(i<n_itF-1) {
       vector<Type> Newton_fn = Cpred - C_hist_y;
       vector<Type> Newton_gr(nfleet);
       Newton_gr.setZero();
@@ -285,12 +307,10 @@ vector<Type> Newton_F(matrix<Type> C_hist, matrix<Type> N, matrix<Type> M, matri
 }
 
 
+
 #include "cDD.hpp"
 #include "DD.hpp"
 #include "SCA.hpp"
-#include "SCA_Pope.hpp"
-#include "SCA2.hpp"
-#include "SCA_RWM.hpp"
 #include "SP.hpp"
 #include "RCM.hpp"
 #include "VPA.hpp"

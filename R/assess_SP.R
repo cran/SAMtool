@@ -83,6 +83,11 @@
 #' and a symmetric production function (n = 2).
 #'
 #' Tip: to create the Fox model (Fox 1970), just fix n = 1. See example.
+#' 
+#' @section Online Documentation:
+#' Model description and equations are available on the openMSE 
+#' \href{https://openmse.com/features-assessment-models/3-sp/}{website}.
+#' 
 #' @author Q. Huynh
 #' @references
 #' Fletcher, R. I. 1978. On the restructuring of the Pella-Tomlinson system. Fishery Bulletin 76:515:521.
@@ -205,8 +210,8 @@ SP_ <- function(x = 1, Data, AddInd = "B", state_space = FALSE, rescale = "mean1
   if(rescale == "mean1") rescale <- 1/mean(C_hist)
 
   Ind <- lapply(AddInd, Assess_I_hist, Data = Data, x = x, yind = yind)
-  I_hist <- do.call(cbind, lapply(Ind, getElement, "I_hist"))
-  I_sd <- do.call(cbind, lapply(Ind, getElement, "I_sd"))
+  I_hist <- vapply(Ind, getElement, numeric(ny), "I_hist")
+  I_sd <- vapply(Ind, getElement, numeric(ny), "I_sd")
   if(is.null(I_hist)) stop("No indices found.")
   nsurvey <- ncol(I_hist)
 
@@ -227,7 +232,7 @@ SP_ <- function(x = 1, Data, AddInd = "B", state_space = FALSE, rescale = "mean1
   if(length(LWT) != nsurvey) stop("LWT needs to be a vector of length ", nsurvey)
   data <- list(model = "SP", C_hist = C_hist, rescale = rescale, I_hist = I_hist, I_sd = I_sd, I_lambda = LWT,
                fix_sigma = as.integer(fix_sigma), nsurvey = nsurvey, ny = ny,
-               est_B_dev = est_B_dev, nstep = n_seas, dt = 1/n_seas, nitF = n_itF)
+               est_B_dev = est_B_dev, nstep = n_seas, dt = 1/n_seas, n_itF = n_itF)
 
   if(use_r_prior) {
     if(!is.null(start$r_prior) && length(start$r_prior) == 2) {
@@ -290,7 +295,11 @@ SP_ <- function(x = 1, Data, AddInd = "B", state_space = FALSE, rescale = "mean1
   Yearplusone <- c(Year, max(Year) + 1)
 
   nll_report <- ifelse(is.character(opt), ifelse(integrate, NA, report$nll), opt$objective)
-  Assessment <- new("Assessment", Model = ifelse(state_space, "SP_SS", "SP"), Name = Data@Name, conv = !is.character(SD) && SD$pdHess,
+  
+  report$dynamic_SSB0 <- SP_dynamic_SSB0(obj, data = info$data, params = info$params, map = map) %>% 
+    structure(names = Yearplusone)
+  Assessment <- new("Assessment", Model = ifelse(state_space, "SP_SS", "SP"), 
+                    Name = Data@Name, conv = SD$pdHess,
                     FMSY = report$FMSY, MSY = report$MSY, BMSY = report$BMSY, VBMSY = report$BMSY,
                     B0 = report$K, VB0 = report$K, FMort = structure(report$F, names = Year),
                     F_FMSY = structure(report$F/report$FMSY, names = Year),
@@ -322,12 +331,8 @@ SP_ <- function(x = 1, Data, AddInd = "B", state_space = FALSE, rescale = "mean1
 
   if(Assessment@conv) {
     if(state_space) {
-      if(integrate) {
-        SE_Dev <- ifelse(est_B_dev, sqrt(SD$diag.cov.random), 0)
-      } else {
-        SE_Dev <- ifelse(est_B_dev, sqrt(diag(SD$cov.fixed)[names(SD$par.fixed) =="log_B_dev"]), 0)
-      }
-      Assessment@SE_Dev <- structure(SE_Dev, names = Year)
+      SE_Dev <- as.list(SD, "Std. Error")$log_B_dev
+      Assessment@SE_Dev <- structure(ifelse(is.na(SE_Dev), 0, SE_Dev), names = Year)
     }
     Assessment@SE_FMSY <- SD$sd[names(SD$value) == "FMSY"]
     Assessment@SE_MSY <- SD$sd[names(SD$value) == "MSY"]
@@ -386,3 +391,16 @@ Euler_Lotka_fn <- function(log_r, M, h, weight, mat, maxage, SR_type) {
   EL <- R_per_S * sum(NPR * weight * mat * exp(-exp(log_r) * c(1:maxage)))
   return(EL - 1)
 }
+
+
+
+SP_dynamic_SSB0 <- function(obj, par = obj$env$last.par.best, ...) {
+  dots <- list(...)
+  dots$data$C_hist <- rep(1e-8, dots$data$ny)
+  dots$params$log_dep <- log(1)
+  
+  obj2 <- MakeADFun(data = dots$data, parameters = dots$params, map = dots$map, 
+                    random = obj$env$random, DLL = "SAMtool", silent = TRUE)
+  obj2$report(par)$B
+}
+

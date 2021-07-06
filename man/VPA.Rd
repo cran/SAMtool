@@ -17,7 +17,7 @@ VPA(
   fix_Fterm = FALSE,
   LWT = NULL,
   shrinkage = list(),
-  nitF = 5L,
+  n_itF = 5L,
   min_age = "auto",
   max_age = "auto",
   refpt = list(),
@@ -66,7 +66,7 @@ The default
 is the number of years in which recruitment will be constrained (as a random walk in log space), the second number is the standard deviation of the random walk.
 }}
 
-\item{nitF}{The number of iterations for solving F in the model (via Newton's method).}
+\item{n_itF}{The number of iterations for solving F in the model (via Newton's method).}
 
 \item{min_age}{An integer to specify the smallest age class in the VPA. By default, the youngest age with non-zero CAA in the terminal year is used.}
 
@@ -96,8 +96,7 @@ hasn't converged. The optimization continues from the parameters from the previo
 }
 \value{
 An object of class \linkS4class{Assessment}. The F vector is the apical fishing mortality experienced by any
-age class in a given year. The U vector is the ratio of catch (weight) and vulnerable biomass, which may be a better
-description of fishing pressure (and UMSY = MSY/VBMSY).
+age class in a given year.
 }
 \description{
 A VPA model that back-calculates abundance-at-age assuming that the catch-at-age is known without error and tuned to an index.
@@ -126,6 +125,15 @@ by the Fratio.
 
 MSY and depletion reference points are calculated by fitting the stock recruit relationship to the recruitment and SSB estimates. Per-recruit
 quantities are also calculated, which may be used in harvest control rules.
+}
+\section{Online Documentation}{
+
+Model description and equations are available on the openMSE 
+\href{https://openmse.com/features-assessment-models/4-vpa/}{website}.
+}
+
+\examples{
+out <- VPA(x = 2, Data = MSEtool::SimulatedData, vulnerability = "dome")
 }
 \references{
 Porch, C.E. 2018. VPA-2BOX 4.01 User Guide. NOAA Tech. Memo. NMFS-SEFSC-726. 67 pp.

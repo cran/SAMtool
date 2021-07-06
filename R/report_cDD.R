@@ -7,12 +7,32 @@ summary_cDD <- function(Assessment, state_space = FALSE) {
   current_status <- data.frame(Value = current_status)
   rownames(current_status) <- c("F/FMSY", "B/BMSY", "B/B0")
 
-  input_parameters <- data.frame(Value = as.numeric(c(h, info$data$M, info$data$Kappa, info$data$k, info$data$wk, info$data$Winf)),
-                                 Description = c("Stock-recruit steepness", "Natural mortality", "Weight coefficient",
-                                                 "Age of knife-edge selectivity", "Weight at age k", "Asymptotic weight"),
-                                 stringsAsFactors = FALSE)
-  rownames(input_parameters) <- c("h", "M", "Kappa", "k", "w_k", "Winf")
-  if(!"transformed_h" %in% names(obj$env$map)) input_parameters <- input_parameters[-1, ]
+  Value <- as.numeric(c(info$data$Kappa, info$data$k, info$data$wk, info$data$Winf))
+  Description <- c("Weight coefficient", "Age of knife-edge selectivity", 
+                   "Weight at age k", "Asymptotic weight")
+  rownam <- c("Kappa", "k", "w_k", "Winf")
+  if(state_space && "log_tau" %in% names(obj$env$map)) {
+    Value <- c(Value, TMB_report$tau)
+    Description <- c(Description, "log-Recruitment deviation SD")
+    rownam <- c(rownam, "tau")
+  }
+  if("transformed_h" %in% names(obj$env$map)) {
+    Value <- c(Value, h)
+    Description <- c(Description, "Stock-recruit steepness")
+    rownam <- c(rownam, "h")
+  }
+  if("log_M" %in% names(obj$env$map)) {
+    Value <- c(Value, TMB_report$M)
+    Description <- c(Description, "Natural mortality")
+    rownam <- c(rownam, "M")
+  }
+  if(any(info$data$MW_hist > 0, na.rm = TRUE) && "log_sigma_W" %in% names(obj$env$map)) {
+    Value <- c(Value, TMB_report$sigma_W)
+    Description <- c(Description, "Mean weight SD")
+    rownam <- c(rownam, "sigma_W")
+  }
+  input_parameters <- data.frame(Value = Value, Description = Description, stringsAsFactors = FALSE)
+  rownames(input_parameters) <- rownam
 
   if(conv) derived <- c(B0, N0, MSY, FMSY, BMSY, BMSY/B0)
   else derived <- rep(NA, 6)
@@ -43,23 +63,35 @@ rmd_cDD <- function(Assessment, state_space = FALSE, ...) {
   } else ss <- rmd_summary("Continuous Delay-Differential")
 
   # Life History
-  age <- 1:Assessment@info$LH$maxage
-  k <- Assessment@info$data$k
-  mat <- ifelse(age < k, 0, 1)
-  LH_section <- c(rmd_LAA(age, Assessment@info$LH$LAA, header = "## Life History\n"), rmd_WAA(age, Assessment@info$LH$WAA),
-                  rmd_LW(Assessment@info$LH$LAA, Assessment@info$LH$WAA),
-                  rmd_mat(age, mat, fig.cap = "Assumed knife-edge maturity at age corresponding to length of 50% maturity."))
-
+  LH_section <- c(rmd_LAA(age = "1:info$LH$maxage", header = "## Life History\n"), 
+                  rmd_WAA(age = "1:info$LH$maxage"), rmd_LW(),
+                  rmd_mat(age = "1:info$LH$maxage", mat = "ifelse(1:info$LH$maxage < info$data$k, 0, 1)", 
+                          fig.cap = "Assumed knife-edge maturity at age corresponding to length of 50% maturity."))
+  
   # Data section
+  if(any(Assessment@obj$env$data$MW_hist > 0, na.rm = TRUE)) {
+    data_MW <- rmd_data_MW()
+  } else {
+    data_MW <- ""
+  }
   data_section <- c(rmd_data_timeseries("Catch", header = "## Data\n"),
-                    rmd_data_timeseries("Index", is_matrix = is.matrix(Assessment@Obs_Index), nsets = ncol(Assessment@Obs_Index)))
+                    rmd_data_timeseries("Index", is_matrix = is.matrix(Assessment@Obs_Index), nsets = ncol(Assessment@Obs_Index)),
+                    data_MW)
 
   # Assessment
   #### Pars and Fit
-  assess_fit <- c(rmd_R0(header = "## Assessment {.tabset}\n### Estimates and Model Fit\n"), rmd_h(),
-                  rmd_sel(age, mat, fig.cap = "Knife-edge selectivity set to the age corresponding to the length of 50% maturity."),
+  assess_fit <- c(rmd_R0(header = "## Assessment {.tabset}\n### Estimates and Model Fit\n"), rmd_h(), rmd_M_prior(),
+                  rmd_sel(age = "1:info$LH$maxage", sel = "ifelse(1:info$LH$maxage < info$data$k, 0, 1)", 
+                          fig.cap = "Knife-edge selectivity set to the age corresponding to the length of 50% maturity."),
                   rmd_assess_fit_series(nsets = ncol(Assessment@Index)), rmd_assess_fit("Catch", "catch", match = TRUE))
-
+  
+  if(any(Assessment@obj$env$data$MW_hist > 0, na.rm = TRUE)) {
+    fit_MW <- rmd_assess_fit_MW()
+  } else {
+    fit_MW <- ""
+  }
+  assess_fit <- c(assess_fit, fit_MW)
+  
   if(state_space) {
     assess_fit2 <- c(rmd_residual("Dev", fig.cap = "Time series of recruitment deviations.", label = Assessment@Dev_type),
                      rmd_residual("Dev", "SE_Dev", fig.cap = "Time series of recruitment deviations with 95% confidence intervals.",
@@ -69,25 +101,20 @@ rmd_cDD <- function(Assessment, state_space = FALSE, ...) {
 
   #### Time Series
   ts_output <- c(rmd_F(header = "### Time Series Output\n"), rmd_F_FMSY(), rmd_SSB(), rmd_SSB_SSBMSY(),
-                 rmd_SSB_SSB0(), rmd_Kobe("SSB_SSBMSY", xlab = "expression(SSB/SSB[MSY])"), rmd_R(),
+                 rmd_SSB_SSB0(), rmd_dynamic_SSB0("TMB_report$dynamic_SSB0"),
+                 rmd_Kobe("SSB_SSBMSY", xlab = "expression(SSB/SSB[MSY])"), rmd_R(),
                  rmd_N())
 
   #### Productivity
-  ny <- Assessment@info$data$ny
-  SSB <- Assessment@SSB[1:ny]
-  Arec <- Assessment@TMB_report$Arec
-  Brec <- Assessment@TMB_report$Brec
-  if(Assessment@info$data$SR_type == "BH") expectedR <- Arec * SSB / (1 + Brec * SSB) else {
-    expectedR <- Arec * SSB * exp(-Brec * SSB)
-  }
-
-  first_recruit_year <- k + 1
-  last_recruit_year <- length(Assessment@info$Year) + k
-  ind_recruit <- first_recruit_year:last_recruit_year
-  rec_dev <- Assessment@R[ind_recruit]
-
-  productivity <- c(rmd_SR(SSB, expectedR, rec_dev, header = "### Productivity\n\n\n"),
-                    rmd_SR(SSB, expectedR, rec_dev, fig.cap = "Stock-recruit relationship (trajectory plot).", trajectory = TRUE),
+  SR_calc <- c("SSB_SR <- SSB[1:info$data$ny]",
+               "if(info$data$SR_type == \"BH\") {",
+               "  R_SR <- TMB_report$Arec * SSB_SR / (1 + TMB_report$Brec * SSB_SR)",
+               "} else {",
+               "  R_SR <- TMB_report$Arec * SSB_SR * exp(-TMB_report$Brec * SSB_SR)",
+               "}",
+               "Rest <- R[1:info$data$ny + info$data$k]")
+  productivity <- c(rmd_SR(header = "### Productivity\n\n\n", SR_calc = SR_calc),
+                    rmd_SR(fig.cap = "Stock-recruit relationship (trajectory plot).", trajectory = TRUE),
                     rmd_yield_F("cDD"), rmd_yield_depletion("cDD"), rmd_sp(), rmd_SPR(), rmd_YPR())
 
   return(c(ss, LH_section, data_section, assess_fit, ts_output, productivity))
@@ -213,8 +240,9 @@ retrospective_cDD <- function(Assessment, nyr, state_space = FALSE) {
     info$data$C_hist <- info$data$C_hist[1:ny_ret]
     info$data$I_hist <- info$data$I_hist[1:ny_ret, , drop = FALSE]
     info$data$I_sd <- info$data$I_sd[1:ny_ret, , drop = FALSE]
+    info$data$MW_hist <- info$data$MW_hist[1:ny_ret]
 
-    if(state_space) info$params$log_rec_dev <- rep(0, ny_ret - k)
+    if(state_space) info$params$log_rec_dev <- rep(0, ny_ret)
 
     obj2 <- MakeADFun(data = info$data, parameters = info$params, map = obj$env$map, random = obj$env$random,
                       inner.control = info$inner.control, DLL = "SAMtool", silent = TRUE)
@@ -222,7 +250,7 @@ retrospective_cDD <- function(Assessment, nyr, state_space = FALSE) {
     opt2 <- mod[[1]]
     SD <- mod[[2]]
 
-    if(!is.character(opt2) && !is.character(SD)) {
+    if(!is.character(opt2)) {
       report <- obj2$report(obj2$env$last.par.best)
       ref_pt <- ref_pt_cDD(info$data, report$Arec, report$Brec)
       report <- c(report, ref_pt)
@@ -272,7 +300,7 @@ plot_yield_cDD <- function(data, report, fmsy, msy, xaxis = c("F", "Biomass", "D
   xaxis <- match.arg(xaxis)
   if(xaxis == "F") F.vector <- seq(0, 2.5 * fmsy, length.out = 1e2) else F.vector <- seq(0, 5 * fmsy, length.out = 1e2)
   
-  yield <- lapply(F.vector, yield_fn_cDD, M = data$M, Kappa = data$Kappa, 
+  yield <- lapply(F.vector, yield_fn_cDD, M = report$M, Kappa = data$Kappa, 
                   Winf = data$Winf, wk = data$wk, SR = data$SR_type, 
                   Arec = report$Arec, Brec = report$Brec, opt = FALSE)
   Biomass <- vapply(yield, getElement, numeric(1), "B")

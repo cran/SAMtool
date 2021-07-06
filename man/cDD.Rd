@@ -11,10 +11,12 @@ cDD(
   AddInd = "B",
   SR = c("BH", "Ricker"),
   rescale = "mean1",
+  MW = FALSE,
   start = NULL,
+  prior = list(),
   fix_h = TRUE,
   dep = 1,
-  LWT = NULL,
+  LWT = list(),
   n_itF = 5L,
   silent = TRUE,
   opt_hess = FALSE,
@@ -29,12 +31,14 @@ cDD_SS(
   AddInd = "B",
   SR = c("BH", "Ricker"),
   rescale = "mean1",
+  MW = FALSE,
   start = NULL,
+  prior = list(),
   fix_h = TRUE,
   fix_sigma = FALSE,
   fix_tau = TRUE,
   dep = 1,
-  LWT = NULL,
+  LWT = list(),
   n_itF = 5L,
   integrate = FALSE,
   silent = TRUE,
@@ -61,15 +65,24 @@ Data@VInd, and "SSB" represents spawning stock biomass in Data@SpInd.}
 can improve convergence. By default, \code{"mean1"} scales the catch so that time series mean is 1, otherwise a numeric.
 Output is re-converted back to original units.}
 
+\item{MW}{Logical, whether to fit to mean weight. In closed-loop simulation, mean weight will be grabbed from \code{Data@Misc[[x]]$MW},
+otherwise calculated from \code{Data@CAL}.}
+
 \item{start}{Optional list of starting values. Entries can be expressions that are evaluated in the function. See details.}
+
+\item{prior}{A named list (R0, h, M, and q) to provide the mean and standard deviations of prior distributions for those parameters. R0, index q, and M priors are
+lognormal (provide the mean in normal space, SD in lognormal space). Beverton-Holt steepness uses a beta prior, while Ricker steepness uses a normal prior.
+For index q, provide a matrix for nsurvey rows and 2 columns (for mean and SD), with NA in rows corresponding to indices without priors. For all others, provide a length-2 vector for the mean and SD.
+See vignette for full description.}
 
 \item{fix_h}{Logical, whether to fix steepness to value in \code{Data@steep} in the assessment model.}
 
 \item{dep}{The initial depletion in the first year of the model. A tight prior is placed on the model objective function
 to estimate the equilibrium fishing mortality corresponding to the initial depletion. Due to this tight prior, this F
-should not be considered to be an independent model parameter.}
+should not be considered to be an independent model parameter. Set to zero to eliminate this prior.}
 
-\item{LWT}{A vector of likelihood weights for each survey.}
+\item{LWT}{A named list of likelihood weights. For \code{LWT$Index}, a vector of likelihood weights for each survey, while
+for \code{LWT$MW} a numeric.}
 
 \item{n_itF}{Integer, the number of iterations to solve F conditional on the observed catch.}
 
@@ -115,15 +128,23 @@ For \code{start} (optional), a named list of starting values of estimates can be
 \itemize{
 \item \code{R0} Unfished recruitment. Otherwise, Data@OM$R0[x] is used in closed-loop, and 400\% of mean catch otherwise.
 \item \code{h} Steepness. Otherwise, Data@steep[x] is used, or 0.9 if empty.
+\item \code{Kappa} Delay-differential Kappa parameter. Otherwise, calculated from biological parameters in the Data object.
 \item \code{F_equilibrium} Equilibrium fishing mortality leading into first year of the model (to determine initial depletion). By default, 0.
 \item \code{tau} Lognormal SD of the recruitment deviations (process error) for \code{DD_SS}. By default, Data@sigmaR[x].
 \item \code{sigma} Lognormal SD of the index (observation error). By default, Data@CV_Ind[x]. Not
 used if multiple indices are used.
+\item \code{sigma_W} Lognormal SD of the mean weight (observation error). By default, 0.1.
 }
 
 Multiple indices are supported in the model. Data@Ind, Data@VInd, and Data@SpInd are all assumed to be biomass-based.
 For Data@AddInd, Data@I_units are used to identify a biomass vs. abundance-based index.
 }
+\section{Online Documentation}{
+
+Model description and equations are available on the openMSE 
+\href{https://openmse.com/features-assessment-models/1-dd/}{website}.
+}
+
 \section{Required Data}{
 
 \itemize{

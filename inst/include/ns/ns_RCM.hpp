@@ -9,16 +9,16 @@ Type log2(Type x) {
 }
 
 template<class Type>
-matrix<Type> generate_ALK(vector<Type> length_bin, matrix<Type> len_age, matrix<Type> SD_LAA, 
-                          int n_age, int nlbin, Type bin_width, int y) {
-  matrix<Type> ALK(n_age, length_bin.size());
+matrix<Type> generate_ALK(vector<Type> lbin, matrix<Type> len_age, matrix<Type> SD_LAA, 
+                          int n_age, int nlbin, int y) {
+  matrix<Type> ALK(n_age, nlbin);
   for(int a=0;a<n_age;a++) {
     for(int j=0;j<nlbin;j++) {
       if(j==nlbin-1) {
-        ALK(a,j) = 1 - pnorm(length_bin(j) - 0.5 * bin_width, len_age(y,a), SD_LAA(y,a));
+        ALK(a,j) = 1 - pnorm(lbin(j), len_age(y,a), SD_LAA(y,a));
       } else {
-        ALK(a,j) = pnorm(length_bin(j) + 0.5 * bin_width, len_age(y,a), SD_LAA(y,a));
-        if(j>0) ALK(a,j) -= pnorm(length_bin(j) - 0.5 * bin_width, len_age(y,a), SD_LAA(y,a));
+        ALK(a,j) = pnorm(lbin(j+1), len_age(y,a), SD_LAA(y,a));
+        if(j>0) ALK(a,j) -= pnorm(lbin(j), len_age(y,a), SD_LAA(y,a));
       }
     }
   }
@@ -118,8 +118,8 @@ array<Type> calc_vul(matrix<Type> vul_par, vector<int> vul_type, matrix<Type> Le
 
 
 template<class Type>
-array<Type> calc_vul_sur(matrix<Type> vul_par, vector<int> vul_type, matrix<Type> Len_age, vector<Type> &LFS, vector<Type> &L5,
-                         vector<Type> &Vmaxlen, Type Linf, matrix<Type> mat, array<Type> fleet_var, Type &prior) {
+array<Type> calc_ivul(matrix<Type> vul_par, vector<int> vul_type, matrix<Type> Len_age, vector<Type> &LFS, vector<Type> &L5,
+                      vector<Type> &Vmaxlen, Type Linf, matrix<Type> mat, array<Type> fleet_var, Type &prior) {
   array<Type> vul(Len_age.rows(), Len_age.cols(), vul_type.size());
   vul.setZero();
 
@@ -182,44 +182,21 @@ Type comp_multinom(array<Type> obs, array<Type> pred, matrix<Type> N, matrix<Typ
   vector<Type> N_obs(n_bin);
   for(int bb=0;bb<n_bin;bb++) {
     p_pred(bb) = pred(y,bb,ff)/N(y,ff);
-    N_obs(bb) = obs(y,bb,ff);
+    N_obs(bb) = obs(y,bb,ff) * N_samp(y,ff);
   }
   Type log_like = dmultinom_(N_obs, p_pred, true);
   return log_like;
 }
 
 template<class Type>
-Type comp_lognorm(array<Type> obs, array<Type> pred, matrix<Type> N, matrix<Type> N_samp, int y, int n_bin, int ff) {
+Type comp_lognorm(array<Type> obs, array<Type> pred, matrix<Type> N, int y, int n_bin, int ff) {
   Type log_like = 0;
   for(int bb=0;bb<n_bin;bb++) {
     Type p_pred = pred(y,bb,ff)/N(y,ff);
-    Type p_obs = obs(y,bb,ff)/N_samp(y,ff);
+    Type p_obs = obs(y,bb,ff);
     log_like += dnorm_(log(p_obs), log(p_pred), pow(0.02/p_obs, 0.5), true);
   }
   return log_like;
-}
-
-template<class Type>
-Type RCM_prior(matrix<int> use_prior, matrix<Type> prior_dist, Type R0, Type h, int SR_type, Type log_M, vector<Type> q) {
-  Type prior = 0;
-  if(use_prior(0)) { // Prior for R0 - normal on log_R0, log Jacobian transform = zero
-    prior += dnorm_(log(R0), prior_dist(0,0), prior_dist(0,1), true);
-  }
-  if(use_prior(1)) { // Prior for h
-    if(SR_type) { // Beverton-Holt - beta on y = (h - 0.2)/0.8 with log Jacobian transform of inverse logit fn
-      Type y = (h - 0.2)/0.8;
-      prior += dbeta_(y, prior_dist(1,0), prior_dist(1,1), true) - log(y - y * y); 
-    } else { // Ricker - normal on h with log Jacobian transform
-      prior += dnorm_(h, prior_dist(1,0), prior_dist(1,1), true) + CppAD::CondExpLt(log(h - 0.2), Type(0), -log(h - 0.2), log(h - 0.2));
-    }
-  }
-  if(use_prior(2)) { // Prior for constant M - normal on log_M
-    prior += dnorm_(log_M, prior_dist(2,0), prior_dist(2,1), true);
-  }
-  for(int i=3;i<use_prior.size();i++) { // Prior for q - normal
-    if(use_prior(i)) prior += dnorm_(q(i-3), prior_dist(i,0), prior_dist(i,1), true);
-  }
-  return prior;
 }
 
 }

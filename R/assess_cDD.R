@@ -15,7 +15,13 @@
 #' @param rescale A multiplicative factor that rescales the catch in the assessment model, which
 #' can improve convergence. By default, \code{"mean1"} scales the catch so that time series mean is 1, otherwise a numeric.
 #' Output is re-converted back to original units.
+#' @param MW Logical, whether to fit to mean weight. In closed-loop simulation, mean weight will be grabbed from \code{Data@@Misc[[x]]$MW},
+#' otherwise calculated from \code{Data@@CAL}.
 #' @param start Optional list of starting values. Entries can be expressions that are evaluated in the function. See details.
+#' @param prior A named list (R0, h, M, and q) to provide the mean and standard deviations of prior distributions for those parameters. R0, index q, and M priors are
+#' lognormal (provide the mean in normal space, SD in lognormal space). Beverton-Holt steepness uses a beta prior, while Ricker steepness uses a normal prior.
+#' For index q, provide a matrix for nsurvey rows and 2 columns (for mean and SD), with NA in rows corresponding to indices without priors. For all others, provide a length-2 vector for the mean and SD.
+#' See vignette for full description.
 #' @param fix_h Logical, whether to fix steepness to value in \code{Data@@steep} in the assessment model.
 #' @param fix_sigma Logical, whether the standard deviation of the index is fixed. If \code{TRUE},
 #' sigma is fixed to value provided in \code{start} (if provided), otherwise, value based on \code{Data@@CV_Ind}.
@@ -23,10 +29,11 @@
 #' tau is fixed to value provided in \code{start} (if provided), otherwise, equal to 1.
 #' @param dep The initial depletion in the first year of the model. A tight prior is placed on the model objective function
 #' to estimate the equilibrium fishing mortality corresponding to the initial depletion. Due to this tight prior, this F
-#' should not be considered to be an independent model parameter.
+#' should not be considered to be an independent model parameter. Set to zero to eliminate this prior.
 #' @param integrate Logical, whether the likelihood of the model integrates over the likelihood
 #' of the recruitment deviations (thus, treating it as a state-space variable). Otherwise, recruitment deviations are penalized parameters.
-#' @param LWT A vector of likelihood weights for each survey.
+#' @param LWT A named list of likelihood weights. For \code{LWT$Index}, a vector of likelihood weights for each survey, while
+#' for \code{LWT$MW} a numeric.
 #' @param silent Logical, passed to \code{\link[TMB]{MakeADFun}}, whether TMB
 #' will print trace information during optimization. Used for diagnostics for model convergence.
 #' @param n_itF Integer, the number of iterations to solve F conditional on the observed catch.
@@ -47,14 +54,20 @@
 #' \itemize{
 #' \item \code{R0} Unfished recruitment. Otherwise, Data@@OM$R0[x] is used in closed-loop, and 400\% of mean catch otherwise.
 #' \item \code{h} Steepness. Otherwise, Data@@steep[x] is used, or 0.9 if empty.
+#' \item \code{Kappa} Delay-differential Kappa parameter. Otherwise, calculated from biological parameters in the Data object.
 #' \item \code{F_equilibrium} Equilibrium fishing mortality leading into first year of the model (to determine initial depletion). By default, 0.
 #' \item \code{tau} Lognormal SD of the recruitment deviations (process error) for \code{DD_SS}. By default, Data@@sigmaR[x].
 #' \item \code{sigma} Lognormal SD of the index (observation error). By default, Data@@CV_Ind[x]. Not
 #' used if multiple indices are used.
+#' \item \code{sigma_W} Lognormal SD of the mean weight (observation error). By default, 0.1.
 #' }
 #' 
 #' Multiple indices are supported in the model. Data@@Ind, Data@@VInd, and Data@@SpInd are all assumed to be biomass-based.
 #' For Data@@AddInd, Data@@I_units are used to identify a biomass vs. abundance-based index.
+#'
+#' @section Online Documentation:
+#' Model description and equations are available on the openMSE 
+#' \href{https://openmse.com/features-assessment-models/1-dd/}{website}.
 #' 
 #' @author Q. Huynh
 #' @references
@@ -81,11 +94,11 @@
 #' summary(res@@SD) # Parameter estimates
 #' @seealso \link{DD_TMB} \link{plot.Assessment} \link{summary.Assessment} \link{retrospective} \link{profile} \link{make_MP}
 #' @export
-cDD <- function(x = 1, Data, AddInd = "B", SR = c("BH", "Ricker"), rescale = "mean1", start = NULL, fix_h = TRUE,
-                dep = 1, LWT = NULL, n_itF = 5L, silent = TRUE, opt_hess = FALSE, n_restart = ifelse(opt_hess, 0, 1),
+cDD <- function(x = 1, Data, AddInd = "B", SR = c("BH", "Ricker"), rescale = "mean1", MW = FALSE, start = NULL, prior = list(), fix_h = TRUE,
+                dep = 1, LWT = list(), n_itF = 5L, silent = TRUE, opt_hess = FALSE, n_restart = ifelse(opt_hess, 0, 1),
                 control = list(iter.max = 5e3, eval.max = 1e4), ...) {
-  cDD_(x = x, Data = Data, AddInd = AddInd, state_space = FALSE, SR = SR, rescale = rescale, start = start, fix_h = fix_h,
-       fix_sigma = FALSE, fix_tau = TRUE, dep = dep, LWT = LWT, n_itF = n_itF,
+  cDD_(x = x, Data = Data, AddInd = AddInd, state_space = FALSE, SR = SR, rescale = rescale, MW = MW, start = start, prior = prior,
+       fix_h = fix_h, fix_sigma = FALSE, fix_tau = TRUE, dep = dep, LWT = LWT, n_itF = n_itF,
        integrate = FALSE, silent = silent, opt_hess = opt_hess, n_restart = n_restart,
        control = control, inner.control = list(), ...)
 }
@@ -94,20 +107,20 @@ class(cDD) <- "Assess"
 
 #' @rdname cDD
 #' @export
-cDD_SS <- function(x = 1, Data, AddInd = "B", SR = c("BH", "Ricker"), rescale = "mean1", start = NULL,
-                   fix_h = TRUE, fix_sigma = FALSE, fix_tau = TRUE, dep = 1, LWT = NULL, n_itF = 5L,
+cDD_SS <- function(x = 1, Data, AddInd = "B", SR = c("BH", "Ricker"), rescale = "mean1", MW = FALSE, start = NULL, prior = list(),
+                   fix_h = TRUE, fix_sigma = FALSE, fix_tau = TRUE, dep = 1, LWT = list(), n_itF = 5L,
                    integrate = FALSE, silent = TRUE, opt_hess = FALSE, n_restart = ifelse(opt_hess, 0, 1),
                    control = list(iter.max = 5e3, eval.max = 1e4), inner.control = list(), ...) {
-  cDD_(x = x, Data = Data, AddInd = AddInd, state_space = TRUE, SR = SR, rescale = rescale, start = start, fix_h = fix_h,
-       fix_sigma = fix_sigma, fix_tau = fix_tau, dep = dep, LWT = LWT, n_itF = n_itF,
+  cDD_(x = x, Data = Data, AddInd = AddInd, state_space = TRUE, SR = SR, rescale = rescale, MW = MW, start = start, prior = prior,
+       fix_h = fix_h, fix_sigma = fix_sigma, fix_tau = fix_tau, dep = dep, LWT = LWT, n_itF = n_itF,
        integrate = integrate, silent = silent, opt_hess = opt_hess, n_restart = n_restart,
        control = control, inner.control = inner.control, ...)
 }
 class(cDD_SS) <- "Assess"
 
 #' @useDynLib SAMtool
-cDD_ <- function(x = 1, Data, AddInd = "B", state_space = FALSE, SR = c("BH", "Ricker"), rescale = "mean1", start = NULL,
-                 fix_h = TRUE, fix_sigma = FALSE, fix_tau = TRUE, dep = 1, LWT = NULL, n_itF = 5L,
+cDD_ <- function(x = 1, Data, AddInd = "B", state_space = FALSE, SR = c("BH", "Ricker"), rescale = "mean1", MW = FALSE, start = NULL,
+                 prior = list(), fix_h = TRUE, fix_sigma = FALSE, fix_tau = TRUE, dep = 1, LWT = list(), n_itF = 5L,
                  integrate = FALSE, silent = TRUE, opt_hess = FALSE, n_restart = ifelse(opt_hess, 0, 1),
                  control = list(iter.max = 5e3, eval.max = 1e4), inner.control = list(), ...) {
   dependencies <- "Data@Cat, Data@Ind, Data@Mort, Data@L50, Data@vbK, Data@vbLinf, Data@vbt0, Data@wla, Data@wlb, Data@MaxAge"
@@ -129,16 +142,32 @@ cDD_ <- function(x = 1, Data, AddInd = "B", state_space = FALSE, SR = c("BH", "R
   }
   Year <- Data@Year[yind]
   C_hist <- Data@Cat[x, yind]
+  ny <- length(C_hist)
   if(any(is.na(C_hist))) stop('Model is conditioned on complete catch time series, but there is missing catch.')
 
   Ind <- lapply(AddInd, Assess_I_hist, Data = Data, x = x, yind = yind)
-  I_hist <- do.call(cbind, lapply(Ind, getElement, "I_hist"))
-  I_sd <- do.call(cbind, lapply(Ind, getElement, "I_sd"))
-  I_units <- do.call(cbind, lapply(Ind, getElement, "I_units"))
+  I_hist <- vapply(Ind, getElement, numeric(ny), "I_hist")
+  I_sd <- vapply(Ind, getElement, numeric(ny), "I_sd")
+  I_units <- vapply(Ind, getElement, numeric(1), "I_units")
   if(is.null(I_hist)) stop("No indices found.", call. = FALSE)
   nsurvey <- ncol(I_hist)
+  
+  if(MW) {
+    if(!is.null(Data@Misc[[x]]$MW)) {
+      MW_hist <- Data@Misc[[x]]$MW
+    } else {
+      MW_hist <- apply(Data@CAL[x, , ], 1, function(xx) {
+        weighted.mean(x = Data@wla[x]*Data@CAL_mids^Data@wlb[x], w = xx, na.rm = TRUE)
+      })
+    }
+    MW_hist[MW_hist <= 0] <- NA_real_
+  } else {
+    MW_hist <- rep(NA_real_, ny)
+  }
+  
+  # Generate priors
+  prior <- make_prior(prior, nsurvey, ifelse(SR == "BH", 1, 2), msg = FALSE)
 
-  ny <- length(C_hist)
   k <- ceiling(a50V)  # get age nearest to 50% vulnerability (ascending limb)
   k[k > Data@MaxAge/2] <- ceiling(Data@MaxAge/2)  # to stop stupidly high estimates of age at 50% vulnerability
   wk <- wa[k]
@@ -146,23 +175,34 @@ cDD_ <- function(x = 1, Data, AddInd = "B", state_space = FALSE, SR = c("BH", "R
   wt_df <- data.frame(t = age[-c(1:(k-1))], W = wa[-c(1:(k-1))], Winf = Winf)
   wt_df$W2 <- c(wt_df$W[2:nrow(wt_df)], NA)
   wt_df <- wt_df[-nrow(wt_df), ]
-
+  
   mod_formula <- formula(W2 ~ Winf + (W - Winf) * exp(-Kappa))
   fit_mod <- nls(mod_formula, wt_df, start = list(Kappa = Data@vbK[x]))
-  Kappa <- coef(fit_mod)[["Kappa"]]
-
+  
+  if(!is.null(start$Kappa)) {
+    Kappa <- start$Kappa
+  } else {
+    Kappa <- coef(fit_mod)[["Kappa"]]
+  }
   M <- Data@Mort[x]
 
   if(!state_space && (nsurvey == 1 & AddInd == "B")) fix_sigma <- FALSE # Override: estimate sigma if there's a single survey
   if(rescale == "mean1") rescale <- 1/mean(C_hist)
   if(dep <= 0 || dep > 1) stop("Initial depletion (dep) must be > 0 and <= 1.")
-  if(is.null(LWT)) LWT <- rep(1, nsurvey)
-  if(length(LWT) != nsurvey) stop("LWT needs to be a vector of length ", nsurvey)
+  if(!is.list(LWT)) {
+    if(!is.null(LWT) && length(LWT) != nsurvey) stop("LWT needs to be a vector of length ", nsurvey)
+    LWT <- list(Index = LWT)
+    LWT$MW <- 1
+  } else {
+    if(is.null(LWT$Index)) LWT$Index <- rep(1, nsurvey)
+    if(is.null(LWT$MW)) LWT$MW <- 1 
+  }
 
-  data <- list(model = "cDD", M = M, Winf = Winf, Kappa = Kappa, ny = ny, k = k, wk = wk, C_hist = C_hist, dep = dep,
-               rescale = rescale, I_hist = I_hist, I_units = I_units, I_sd = I_sd,
-               SR_type = SR, nitF = n_itF, I_lambda = LWT, nsurvey = nsurvey,
-               fix_sigma = as.integer(fix_sigma), state_space = as.integer(state_space))
+  data <- list(model = "cDD", Winf = Winf, Kappa = Kappa, ny = ny, k = k, wk = wk, C_hist = C_hist, dep = dep,
+               rescale = rescale, I_hist = I_hist, I_units = I_units, I_sd = I_sd, MW_hist = MW_hist,
+               SR_type = SR, n_itF = n_itF, LWT = c(LWT$Index, LWT$MW), nsurvey = nsurvey,
+               fix_sigma = as.integer(fix_sigma), state_space = as.integer(state_space),
+               use_prior = prior$use_prior, prior_dist = prior$pr_matrix)
   LH <- list(LAA = la, WAA = wa, maxage = Data@MaxAge, A50 = k, fit_mod = fit_mod)
 
   params <- list()
@@ -176,10 +216,13 @@ cDD_ <- function(x = 1, Data, AddInd = "B", state_space = FALSE, SR = c("BH", "R
         params$transformed_h <- log(start$h[1] - 0.2)
       }
     }
+    if(!is.null(start$M) && is.numeric(start$M)) params$log_M <- log(start$M[1])
     if(!is.null(start$F_equilibrium) && is.numeric(start$F_equilibrium)) params$F_equilibrium <- start$F_equililbrium
-    if(!is.null(start$sigma) && is.numeric(start$sigma)) params$log_sigma <- log(start$sigma[1])
+    if(!is.null(start[["sigma"]]) && is.numeric(start[["sigma"]])) params$log_sigma <- log(start[["sigma"]])
+    if(!is.null(start[["sigma_W"]]) && is.numeric(start[["sigma_W"]])) params$log_sigma_W <- log(start[["sigma_W"]])
     if(!is.null(start$tau) && is.numeric(start$tau)) params$log_tau <- log(start$tau[1])
   }
+  
   if(is.null(params$R0x)) {
     params$R0x <- ifelse(is.null(Data@OM$R0[x]), log(4 * mean(data$C_hist)), log(1.5 * rescale * Data@OM$R0[x]))
   }
@@ -192,23 +235,23 @@ cDD_ <- function(x = 1, Data, AddInd = "B", state_space = FALSE, SR = c("BH", "R
       params$transformed_h <- log(h_start - 0.2)
     }
   }
+  if(is.null(params$log_M)) params$log_M <- log(M)
   if(is.null(params$F_equilibrium)) params$F_equilibrium <- ifelse(dep < 1, 0.1, 0)
-  if(is.null(params$log_sigma)) {
-    params$log_sigma <- max(0.05, sdconv(1, Data@CV_Ind[x]), na.rm = TRUE) %>% log()
-  }
-  if(is.null(params$log_tau)) {
-    params$log_tau <- ifelse(is.na(Data@sigmaR[x]), 0.6, Data@sigmaR[x]) %>% log()
-  }
-  params$log_rec_dev <- rep(0, ny - k)
+  if(is.null(params[["log_sigma"]])) params$log_sigma <- max(0.05, sdconv(1, Data@CV_Ind[x]), na.rm = TRUE) %>% log()
+  if(is.null(params[["log_sigma_W"]])) params$log_sigma_W <- log(0.1)
+  if(is.null(params$log_tau)) params$log_tau <- ifelse(is.na(Data@sigmaR[x]), 0.6, Data@sigmaR[x]) %>% log()
+  params$log_rec_dev <- rep(0, ny)
 
   info <- list(Year = Year, data = data, params = params, LH = LH, control = control, inner.control = inner.control)
 
   map <- list()
-  if(fix_h) map$transformed_h <- factor(NA)
+  if(fix_h && !prior$use_prior[2]) map$transformed_h <- factor(NA)
+  if(!prior$use_prior[3]) map$log_M <- factor(NA)
   if(dep == 1) map$F_equilibrium <- factor(NA)
   if(fix_sigma) map$log_sigma <- factor(NA)
+  map$log_sigma_W <- factor(NA)
   if(fix_tau) map$log_tau <- factor(NA)
-  if(!state_space) map$log_rec_dev <- factor(rep(NA, ny-k))
+  if(!state_space) map$log_rec_dev <- factor(rep(NA, ny))
 
   random <- NULL
   if(integrate) random <- "log_rec_dev"
@@ -235,8 +278,12 @@ cDD_ <- function(x = 1, Data, AddInd = "B", state_space = FALSE, SR = c("BH", "R
   Yearplusk <- c(Year, max(Year) + 1:k)
 
   nll_report <- ifelse(is.character(opt), ifelse(integrate, NA, report$nll), opt$objective)
+  
+  report$dynamic_SSB0 <- cDD_dynamic_SSB0(obj, data = info$data, params = info$params, map = map) %>% 
+    structure(names = Yearplusone)
+  
   Assessment <- new("Assessment", Model = ifelse(state_space, "cDD_SS", "cDD"),
-                    Name = Data@Name, conv = !is.character(SD) && SD$pdHess,
+                    Name = Data@Name, conv = SD$pdHess,
                     B0 = report$B0, R0 = report$R0, N0 = report$N0,
                     SSB0 = report$B0, VB0 = report$B0, h = report$h,
                     FMort = structure(report$F, names = Year),
@@ -258,13 +305,12 @@ cDD_ <- function(x = 1, Data, AddInd = "B", state_space = FALSE, SR = c("BH", "R
                     dependencies = dependencies)
 
   if(state_space) {
-    YearDev <- seq(Year[1] + k, max(Year))
-    Assessment@Dev <- structure(report$log_rec_dev, names = YearDev)
+    Assessment@Dev <- structure(report$log_rec_dev, names = Year)
     Assessment@Dev_type <- "log-Recruitment deviations"
   }
 
   if(Assessment@conv) {
-    ref_pt <- ref_pt_cDD(info$data, report$Arec, report$Brec)
+    ref_pt <- ref_pt_cDD(info$data, report$Arec, report$Brec, report$M)
     report <- c(report, ref_pt[1:3])
 
     Assessment@FMSY <- report$FMSY
@@ -275,12 +321,7 @@ cDD_ <- function(x = 1, Data, AddInd = "B", state_space = FALSE, SR = c("BH", "R
     Assessment@TMB_report <- report
 
     if(state_space) {
-      if(integrate) {
-        SE_Dev <- sqrt(SD$diag.cov.random)
-      } else {
-        SE_Dev <- sqrt(diag(SD$cov.fixed)[names(SD$par.fixed) == "log_rec_dev"])
-      }
-      Assessment@SE_Dev <- structure(SE_Dev, names = YearDev)
+      Assessment@SE_Dev <- structure(as.list(SD, "Std. Error")$log_rec_dev, names = Year)
     }
     
     catch_eq <- function(Ftarget) {
@@ -292,8 +333,8 @@ cDD_ <- function(x = 1, Data, AddInd = "B", state_space = FALSE, SR = c("BH", "R
   return(Assessment)
 }
 
-ref_pt_cDD <- function(TMB_data, Arec, Brec) {
-  opt2 <- optimize(yield_fn_cDD, interval = c(0, 3), M = TMB_data$M, Kappa = TMB_data$Kappa, 
+ref_pt_cDD <- function(TMB_data, Arec, Brec, M) {
+  opt2 <- optimize(yield_fn_cDD, interval = c(0, 3), M = M, Kappa = TMB_data$Kappa, 
                    Winf = TMB_data$Winf, wk = TMB_data$wk, SR = TMB_data$SR_type, 
                    Arec = Arec, Brec = Brec)
   FMSY <- opt2$minimum
@@ -301,7 +342,7 @@ ref_pt_cDD <- function(TMB_data, Arec, Brec) {
   BMSY <- MSY/FMSY
   
   F_PR <- seq(0, 2.5 * FMSY, length.out = 100)
-  yield <- lapply(F_PR, yield_fn_cDD, M = TMB_data$M, Kappa = TMB_data$Kappa, 
+  yield <- lapply(F_PR, yield_fn_cDD, M = M, Kappa = TMB_data$Kappa, 
                   Winf = TMB_data$Winf, wk = TMB_data$wk, SR = TMB_data$SR_type, 
                   Arec = Arec, Brec = Brec, opt = FALSE)
   
@@ -331,3 +372,15 @@ yield_fn_cDD <- function(x, M, Kappa, Winf, wk, SR, Arec, Brec, opt = TRUE, log_
     return(c(SPR = BPR, Yield = Yield, YPR = YPR, B = Beq, R = Req))
   }
 }
+
+
+cDD_dynamic_SSB0 <- function(obj, par = obj$env$last.par.best, ...) {
+  dots <- list(...)
+  dots$data$C_hist <- rep(1e-8, dots$data$ny)
+  par[names(par) == "F_equilibrium"] <- 0
+  
+  obj2 <- MakeADFun(data = dots$data, parameters = dots$params, map = dots$map, 
+                    random = obj$env$random, DLL = "SAMtool", silent = TRUE)
+  obj2$report(par)$B
+}
+

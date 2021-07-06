@@ -3,11 +3,14 @@
 \name{profile}
 \alias{profile}
 \alias{profile,Assessment-method}
+\alias{profile,RCModel-method}
 \title{Profile likelihood of assessment models}
 \usage{
 profile(fitted, ...)
 
 \S4method{profile}{Assessment}(fitted, figure = TRUE, ...)
+
+\S4method{profile}{RCModel}(fitted, figure = TRUE, ...)
 }
 \arguments{
 \item{fitted, Assessment}{An object of class \linkS4class{Assessment}.}
@@ -35,16 +38,18 @@ For the following assessment models, possible sequence of values for profiling a
 \item VPA: \code{F_term}
 \item SSS: \code{R0}
 }
+
+For RCM: \code{D} (spawning biomass depletion), \code{R0}, and \code{h} are used.
 }
 \examples{
 \donttest{
-output <- DD_TMB(Data = MSEtool::SimulatedData)
+output <- SCA(Data = MSEtool::SimulatedData)
 
 # Profile R0 only
-pro <- profile(output, R0 = seq(100, 300, 10))
+pro <- profile(output, R0 = seq(1000, 2000, 50))
 
 # Profile both R0 and steepness
-pro <- profile(output, R0 = seq(100, 300, 10), h = seq(0.7, 0.9, 0.01))
+pro <- profile(output, R0 = seq(1000, 2000, 100), h = seq(0.8, 0.95, 0.025))
 
 # Ensure your grid is of proper resolution. A grid that is too coarse
 # will likely distort the shape of the likelihood surface.

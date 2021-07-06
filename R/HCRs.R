@@ -13,13 +13,16 @@
 #' FMSY or UMSY, vulnerable biomass, and spawning biomass depletion in terminal year.
 #' @param reps The number of stochastic samples of the TAC recommendation.
 #' @param OCP_type The type of operational control points (OCPs) for the harvest control rule used to determine the reduction in F.
-#' By default, use (\code{"SSB_SSB0"} for spawning depletion. Otherwise use \code{"SSB_SSBMSY"} for spawning biomass relative to MSY).
+#' By default, use (\code{"SSB_SSB0"} for spawning depletion. Other biomass OCPs include \code{"SSB_SSBMSY"} for spawning biomass relative to MSY and
+#' \code{"SSB_dSSB0"}, for dynamic depletion (dynamic SSB0 is the historical reconstructed biomass with F = 0).
+#' For F-based OCPs, the terminal year fishing mortality relative F01 or Fmax (using yield-per-recruit) or F-SPR\% (see \code{SPR_OCP} argument) can be used.
 #' @param LOCP Numeric, the limit value for the OCP in the HCR.
 #' @param TOCP Numeric, the target value for the OCP in the HCR.
 #' @param Ftarget_type The type of F used for the target fishing mortality rate.
 #' @param relF_min The relative value of Ftarget (i.e., as a proportion) if \code{OCP < LOCP}.
 #' @param relF_max The relative value of Ftarget if \code{OCP > TOCP}.
-#' @param SPR The target value of spawning potential ratio if \code{Ftarget_type = "FSPR"}. By default, 0.4 (F40\%).
+#' @param SPR_OCP The value of spawning potential ratio for the OCP if \code{OCP_type = "F_FSPR"}. By default, 0.4 (F40\%).
+#' @param SPR_targ The target value of spawning potential ratio if \code{Ftarget_type = "FSPR"}. By default, 0.4 (F40\%).
 #' @param ... Miscellaneous arguments.
 #' @details \code{HCR_ramp} is the generic ramped-HCR function where user specifies OCP and corresponding limit and target
 #' points, as well as minimum and maximum relative F target.
@@ -76,9 +79,10 @@
 #'     ylim = c(0, 1), type = "l")
 #' abline(v = c(0.4, 0.8), col = "red", lty = 2)
 #' @export
-HCR_ramp <- function(Assessment, reps = 1, OCP_type = c("SSB_SSB0", "SSB_SSBMSY"),
+HCR_ramp <- function(Assessment, reps = 1, OCP_type = c("SSB_SSB0", "SSB_SSBMSY", "SSB_dSSB0", "F_FMSY", "F_F01", "F_FSPR"),
                      Ftarget_type = c("FMSY", "F01", "Fmax", "FSPR"), 
-                     LOCP = 0.1, TOCP = 0.4, relF_min = 0, relF_max = 1, SPR, ...) {
+                     LOCP = 0.1, TOCP = 0.4, relF_min = 0, relF_max = 1, SPR_OCP, SPR_targ, ...) {
+  dots <- list(...)
   OCP_type <- match.arg(OCP_type)
   Ftarget_type <- match.arg(Ftarget_type)
   
@@ -88,7 +92,52 @@ HCR_ramp <- function(Assessment, reps = 1, OCP_type = c("SSB_SSB0", "SSB_SSBMSY"
       OCP <- Assessment@SSB_SSB0[length(Assessment@SSB_SSB0)]
     } else if(OCP_type == "SSB_SSBMSY" && length(Assessment@SSB_SSBMSY)) {
       OCP <- Assessment@SSB_SSBMSY[length(Assessment@SSB_SSBMSY)]
-    } else OCP <- NA_real_
+    } else if(OCP_type == "SSB_dSSB0" && !is.null(Assessment@TMB_report$dynamic_SSB0)) {
+      OCP <- Assessment@SSB/Assessment@TMB_report$dynamic_SSB0
+      OCP <- OCP[length(OCP)]
+    } else if(OCP_type == "F_FMSY") {
+      if(length(Assessment@U_UMSY)) {
+        OCP <- Assessment@U_UMSY[length(Assessment@U_UMSY)]
+      } else if(length(Assessment@F_FMSY)) {
+        OCP <- Assessment@F_FMSY[length(Assessment@F_FMSY)]
+      } else {
+        OCP <- NA_real_
+      }
+    } else if(OCP_type == "F_F01" && length(Assessment@FMort)) {
+      if(!is.null(Assessment@forecast$per_recruit$F01)) {
+        F01 <- Assessment@forecast$per_recruit$F01
+        OCP <- Assessment@FMort[length(Assessment@FMort)]/F01
+      } else if(!is.null(Assessment@forecast$per_recruit$U)) {
+        U01 <- get_F01(Assessment@forecast$per_recruit$U, Assessment@forecast$per_recruit$YPR)
+        OCP <- Assessment@U[length(Assessment@U)]/U01
+      } else {
+        F01 <- get_F01(Assessment@forecast$per_recruit$FM, Assessment@forecast$per_recruit$YPR)
+        OCP <- Assessment@FMort[length(Assessment@FMort)]/F01
+      }
+    } else if(OCP_type == "F_Fmax" && length(Assessment@FMort)) {
+      if(!is.null(Assessment@forecast$per_recruit$Fmax)) {
+        Fmax <- Assessment@forecast$per_recruit$Fmax
+        OCP <- Assessment@FMort[length(Assessment@FMort)]/Fmax
+      } else if(!is.null(Assessment@forecast$per_recruit$U)) {
+        Umax <- get_Fmax(Assessment@forecast$per_recruit$U, Assessment@forecast$per_recruit$YPR)
+        OCP <- Assessment@U[length(Assessment@U)]/Fmax
+      } else {
+        Fmax <- get_Fmax(Assessment@forecast$per_recruit$FM, Assessment@forecast$per_recruit$YPR)
+        OCP <- Assessment@FMort[length(Assessment@FMort)]/Fmax
+      }
+    } else if(OCP_type == "F_FSPR" && length(Assessment@FMort)) {
+      if(missing(SPR_OCP)) SPR_OCP <- 0.4
+      if(!is.null(Assessment@forecast$per_recruit$U)) {
+        U_SPR <- get_FSPR(Assessment@forecast$per_recruit$U, Assessment@forecast$per_recruit$SPR, target = SPR_OCP)
+        OCP <- Assessment@U[length(Assessment@U)]/U_SPR
+      } else {
+        F_SPR <- get_FSPR(Assessment@forecast$per_recruit$FM, Assessment@forecast$per_recruit$SPR,
+                          target = SPR_OCP)
+        OCP <- Assessment@FMort[length(Assessment@FMort)]/F_SPR
+      }
+    } else {
+      OCP <- NA_real_
+    }
     
     if(!is.na(OCP)) {
       alpha <- HCRlin(OCP, LOCP, TOCP, relF_min, relF_max)
@@ -102,33 +151,45 @@ HCR_ramp <- function(Assessment, reps = 1, OCP_type = c("SSB_SSB0", "SSB_SSBMSY"
           SE <- alpha * Assessment@SE_FMSY
         } 
       } else if(Ftarget_type == "F01") {
-        if(!is.null(Assessment@forecast$per_recruit$U)) {
+        if(!is.null(Assessment@forecast$per_recruit$F01)) {
+          Fout <- Assessment@forecast$per_recruit$F01
+        } else if(!is.null(Assessment@forecast$per_recruit$U)) {
           U01 <- get_F01(Assessment@forecast$per_recruit$U, Assessment@forecast$per_recruit$YPR)
           Fout <- -log(1 - alpha * U01)
         } else {
           Fout <- alpha * get_F01(Assessment@forecast$per_recruit$FM, Assessment@forecast$per_recruit$YPR)
         }
       } else if(Ftarget_type == "Fmax") {
-        if(!is.null(Assessment@forecast$per_recruit$U)) {
+        if(!is.null(Assessment@forecast$per_recruit$Fmax)) {
+          Fout <- Assessment@forecast$per_recruit$Fmax
+        } else if(!is.null(Assessment@forecast$per_recruit$U)) {
           Umax <- get_Fmax(Assessment@forecast$per_recruit$U, Assessment@forecast$per_recruit$YPR)
           Fout <- -log(1 - alpha * Umax)
         } else {
           Fout <- alpha * get_Fmax(Assessment@forecast$per_recruit$FM, Assessment@forecast$per_recruit$YPR)
         }
       } else if(Ftarget_type == "FSPR") {
-        if(missing(SPR)) SPR <- 0.4
+        if(missing(SPR_targ)) {
+          if(!is.null(dots$SPR)) {
+            SPR_targ <- dots$SPR
+          } else SPR_targ <- 0.4
+        }
         if(!is.null(Assessment@forecast$per_recruit$U)) {
-          U_SPR <- get_FSPR(Assessment@forecast$per_recruit$U, Assessment@forecast$per_recruit$SPR, target = SPR)
+          U_SPR <- get_FSPR(Assessment@forecast$per_recruit$U, Assessment@forecast$per_recruit$SPR, target = SPR_targ)
           Fout <- -log(1 - alpha * U_SPR)
         } else {
           Fout <- alpha * get_FSPR(Assessment@forecast$per_recruit$FM, Assessment@forecast$per_recruit$SPR,
-                                   target = SPR)
+                                   target = SPR_targ)
         }
       }
       
       if(exists("Fout", inherits = FALSE)) {
-        if(!exists("SE", inherits = FALSE) || !length(SE)) SE <- 0
-        FM <- trlnorm(reps, Fout, SE/Fout)
+        if(Fout > 0) {
+          if(!exists("SE", inherits = FALSE) || !length(SE)) SE <- 0
+          FM <- trlnorm(reps, Fout, SE/Fout)
+        } else {
+          FM <- rep(0, reps)
+        }
         TAC <- calculate_TAC(Assessment, Ftarget = FM)
       }
     }
@@ -144,26 +205,26 @@ class(HCR_ramp) <- "HCR"
 
 #' @rdname HCR_ramp
 #' @export
-HCR40_10 <- function(Assessment, reps = 1, Ftarget_type = "FMSY", SPR = 0.4, ...) {
+HCR40_10 <- function(Assessment, reps = 1, Ftarget_type = "FMSY", SPR_targ = 0.4, ...) {
   HCR_ramp(Assessment, reps, LOCP = 0.1, TOCP = 0.4, Ftarget_type = Ftarget_type, 
-           relF_min = 0, relF_max = 1, SPR = SPR, ...)
+           relF_min = 0, relF_max = 1, SPR_targ = SPR_targ, ...)
 }
 class(HCR40_10) <- "HCR"
 
 
 #' @rdname HCR_ramp
 #' @export
-HCR60_20 <- function(Assessment, reps = 1, Ftarget_type = "FMSY", SPR = 0.4, ...) {
+HCR60_20 <- function(Assessment, reps = 1, Ftarget_type = "FMSY", SPR_targ = 0.4, ...) {
   HCR_ramp(Assessment, reps, LOCP = 0.2, TOCP = 0.6, Ftarget_type = Ftarget_type, 
-           relF_min = 0, relF_max = 1, SPR = SPR, ...)
+           relF_min = 0, relF_max = 1, SPR_targ = SPR_targ, ...)
 }
 class(HCR60_20) <- "HCR"
 
 #' @rdname HCR_ramp
 #' @export
-HCR80_40MSY <- function(Assessment, reps = 1, Ftarget_type = "FMSY", SPR = 0.4, ...) {
-  HCR_ramp(Assessment, reps, OCP_type = "SSB_SSBMSY", LOCP = 0.4, TOCP = 0.8, 
-           Ftarget_type = Ftarget_type, relF_min = 0, relF_max = 1, SPR = SPR, ...)
+HCR80_40MSY <- function(Assessment, reps = 1, Ftarget_type = "FMSY", SPR_targ = 0.4, ...) {
+  HCR_ramp(Assessment, reps, OCP_type = "SSB_SSBMSY", LOCP = 0.5, TOCP = 0.5, 
+           Ftarget_type = Ftarget_type, relF_min = 0, relF_max = 1, SPR_targ = SPR_targ, ...)
 }
 class(HCR80_40MSY) <- "HCR"
 
@@ -199,6 +260,51 @@ HCR_MSY <- function(Assessment, reps = 1, MSY_frac = 1, ...) {
            relF_min = MSY_frac, relF_max = MSY_frac)
 }
 class(HCR_MSY) <- "HCR"
+
+#' Fixed escapement harvest control rule
+#'
+#' A simple control rule that allows fishing when the operational control point (OCP) is above some threshold.
+#' By default, this function sets the TAC at F = 100\% FMSY when spawning depletion > 0.1.
+#'
+#' @param Assessment An object of class \linkS4class{Assessment} with estimates of
+#' FMSY or UMSY and vulnerable biomass in terminal year.
+#' @param reps The number of stochastic samples of the TAC recommendation.
+#' @param OCP_type The type of operational control points (OCPs) for the harvest control rule used to determine 
+#' whether there is fishing. By default, use (\code{"SSB_SSB0"} for spawning depletion. Other biomass OCPs include \code{"SSB_SSBMSY"} for spawning biomass relative to MSY and
+#' \code{"SSB_dSSB0"}, for dynamic depletion (dynamic SSB0 is the historical reconstructed biomass with F = 0).
+#' For F-based OCPs, the terminal year fishing mortality relative F01 or Fmax (using yield-per-recruit) or F-SPR\% (see \code{SPR_OCP} argument) can be used.
+#' @param OCP_threshold The value of the OCP above which fishing can occur.
+#' @param Ftarget_type The type of F used for the target fishing mortality rate.
+#' @param relF_max The relative value of Ftarget if \code{OCP > OCP_treshold}.
+#' @param ... Miscellaneous arguments.
+#' @return An object of class \linkS4class{Rec} with the TAC recommendation.
+#' @author Q. Huynh
+#' @references
+#' Deroba, J.J. and Bence, J.R. 2008. A review of harvest policies: Understanding relative
+#' performance of control rules. Fisheries Research 94:210-223.
+#' @seealso \link{make_MP} \link{HCR_ramp}
+#' @examples
+#' # create an MP to run in closed-loop MSE (fishes at FMSY when B/B0 > 0.2)
+#' SP_escapement <- make_MP(SP, HCR_escapement)
+#'
+#' # The MP which fishes at 75% of FMSY
+#' SP_escapement75 <- make_MP(SP, HCR_escapement, relF_max = 0.75)
+#' 
+#' # The MP which fishes at FMSY when BMSY > 0.5
+#' SP_BMSY_escapement <- make_MP(SP, HCR_escapement, OCP_type = "SSB_SSBMSY", 
+#'                               OCP_threshold = 0.5, relF_max = 1)
+#'
+#' \donttest{
+#' myOM <- MSEtool::runMSE(MSEtool::testOM, MPs = c("FMSYref", "SP_escapement", "SP_BMSY_escapement"))
+#' }
+#' @export
+HCR_escapement <- function(Assessment, reps = 1, OCP_type = "SSB_SSB0", OCP_threshold = 0.2, 
+                           Ftarget_type = "FMSY", 
+                           relF_max = 1, ...) {
+  HCR_ramp(Assessment, reps, OCP_type = OCP_type, LOCP = OCP_threshold, TOCP = OCP_threshold, 
+           Ftarget_type = Ftarget_type, relF_min = 0, relF_max = relF_max, ...)
+}
+class(HCR_escapement) <- "HCR"
 
 #' Generic linear harvest control rule based on biomass
 #'
