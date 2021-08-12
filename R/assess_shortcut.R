@@ -9,7 +9,7 @@
 #' model, estimates the error parameters using a vector autoregressive model of the residuals, and then generates model "estimates"
 #' using \link[vars]{predict.varest}. \code{Perfect} assumes no error in the assessment model and is useful for comparing the behavior of 
 #' different harvest control rules. To utilize the shortcut method in closed-loop simulation, use \link{make_MP} with these functions as 
-#' the Assessment model. 
+#' the Assessment model. N.B. the functions do not work with \code{runMSE(parallel = TRUE)}.
 #' 
 #' @aliases Perfect
 #' @param x An index for the objects in \code{Data} when running in \link[MSEtool]{runMSE}.
@@ -59,8 +59,9 @@ Shortcut <- function(x = 1, Data, method = c("B", "N", "RF"), B_err = c(0.3, 0.7
                      R_err = c(0.3, 0.7, 1), F_err = c(0.3, 0.7, 1), VAR_model, ...) {
   OM_ind <- lapply(1:length(sys.calls()), function(xx) try(get("N_P", envir = sys.frames()[[xx]], inherits = FALSE), silent = TRUE)) %>%
     vapply(function(xx) !is.character(xx), logical(1)) %>% which()
-  if(length(OM_ind) == 0) {
-    return(new("Assessment", opt = "", SD = "", conv = FALSE))
+  if(!length(OM_ind)) {
+    stop("No operating model was found.")
+    #return(new("Assessment", opt = "", SD = "", conv = FALSE))
   }
   
   method <- match.arg(method)
@@ -238,9 +239,6 @@ class(Shortcut) <- "Assess"
 #' @importFrom vars VAR
 #' @export
 Shortcut2 <- function(x, Data, method = "N", SCA_args = list(), VAR_args = list(type = "none"), ...) {
-  OM_ind <- lapply(1:length(sys.calls()), function(xx) try(get("N_P", envir = sys.frames()[[xx]], inherits = FALSE), silent = TRUE)) %>%
-    vapply(function(xx) !is.character(xx), logical(1)) %>% which()
-
   method <- match.arg(method, choices = c("N", "B", "RF"))
   
   if(!is.null(Data@Misc[[x]]$VAR_model)) {
