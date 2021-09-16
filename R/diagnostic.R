@@ -100,10 +100,7 @@ diagnostic <- function(MSE, MP, gradient_threshold = 0.1, figure = TRUE) {
 
   if(figure) {
     old_par <- par(no.readonly = TRUE)
-    on.exit(layout(matrix(1)))
     on.exit(par(old_par), add = TRUE)
-
-    par(mar = c(5, 4, 1, 1), oma = c(0, 0, 8, 0))
   }
 
   MPs <- MSE@MPs
@@ -141,6 +138,7 @@ diagnostic <- function(MSE, MP, gradient_threshold = 0.1, figure = TRUE) {
 
       if(figure) {
         layout(matrix(c(1, 2, 3, 4, 4, 5), ncol = 3, byrow = TRUE))
+        par(mar = c(5, 4, 1, 1), oma = c(0, 0, 8, 0))
 
         plot_hessian_convergence(hessian_code, Year)
         plot_msg(msg, Year)
@@ -184,16 +182,20 @@ plot_hessian_convergence <- function(convergence_code, Year) {
   yr_range <- range(do.call(c, Year))
 
   plot(x = NULL, y = NULL, xlim = c(-0.5, 0.5) + yr_range, ylim = c(0.5, nsim + 0.5),
-       xlab = "MSE year", ylab = "Simulation #", xaxs = "i", yaxs = "i")
+       xlab = "MSE year", ylab = "Simulation #", xaxs = "i", yaxs = "i", axes = FALSE)
+  axis(1, at = pretty(yr_range[1]:yr_range[2]) %>% round() %>% unique())
+  axis(2, at = pretty(1:nsim) %>% round() %>% unique())
+  box()
   mtext('Is Hessian matrix \n positive definite? \n (green: yes, red: no)')
-  for(i in 1:nsim) {
-    for(j in 1:length(convergence_code[[i]])) {
-      color <- ifelse(convergence_code[[i]][j], 'green', 'red')
+  
+  lapply(1:nsim, function(i) {
+    lapply(1:length(convergence_code[[i]]), function(j) {
       xcoord <- rep(c(Year[[i]][j] - 0.5, Year[[i]][j] + 0.5), each = 2)
       ycoord <- c(i - 0.5, i + 0.5, i + 0.5, i - 0.5)
-      polygon(x = xcoord, y = ycoord, border = 'black', col = color)
-    }
-  }
+      polygon(x = xcoord, y = ycoord, border = 'black', col = ifelse(convergence_code[[i]][j], 'green', 'red'))
+    })
+  })
+  
   return(invisible())
 }
 
@@ -202,10 +204,14 @@ plot_msg <- function(convergence_code, Year) {
   yr_range <- range(do.call(c, Year))
 
   plot(x = NULL, y = NULL, xlim = c(-0.5, 0.5) + yr_range, ylim = c(0.5, nsim + 0.5),
-       xlab = "MSE year", ylab = "Simulation #", xaxs = "i", yaxs = "i")
+       xlab = "MSE year", ylab = "Simulation #", xaxs = "i", yaxs = "i", axes = FALSE)
+  axis(1, at = pretty(yr_range[1]:yr_range[2]) %>% round() %>% unique())
+  axis(2, at = pretty(1:nsim) %>% round() %>% unique())
+  box()
   mtext('Did nlminb reach iteration limit? \n (red: yes)')
-  for(i in 1:nsim) {
-    for(j in 1:length(convergence_code[[i]])) {
+  
+  lapply(1:nsim, function(i) {
+    lapply(1:length(convergence_code[[i]]), function(j) {
       if(convergence_code[[i]][j] == "function evaluation limit reached without convergence (9)" ||
          convergence_code[[i]][j] == "iteration limit reached without convergence (10)") {
         color <- "red"
@@ -213,8 +219,9 @@ plot_msg <- function(convergence_code, Year) {
       xcoord <- rep(c(Year[[i]][j] - 0.5, Year[[i]][j] + 0.5), each = 2)
       ycoord <- c(i - 0.5, i + 0.5, i + 0.5, i - 0.5)
       polygon(x = xcoord, y = ycoord, border = 'black', col = color)
-    }
-  }
+    })
+  })
+  
   return(invisible())
 }
 
@@ -237,11 +244,11 @@ plot_iter <- function(x, Year, plot_type = c('line', 'hist'), lab = c("Optimizat
          ylim = c(0.9, 1.1) * range(do.call(c, x), na.rm = TRUE),
          xlab = "MSE Year", ylab = lab)
     mtext(lab)
-
-    for(i in 1:nsim) {
+    
+    lapply(1:nsim, function(i) {
       points(Year[[i]], x[[i]], col = color.vec[i], typ = 'l')
       text(Year[[i]], x[[i]], labels = i, col = color.vec[i])
-    }
+    })
   }
 
   return(invisible())
@@ -252,17 +259,20 @@ plot_max_gr <- function(max_gr, Year, threshold = 1) {
   yr_range <- range(do.call(c, Year))
 
   plot(x = NULL, y = NULL, xlim = c(-0.5, 0.5) + yr_range, ylim = c(0.5, nsim + 0.5),
-       xlab = "MSE Year", ylab = "Simulation #", xaxs = "i", yaxs = "i")
+       xlab = "MSE Year", ylab = "Simulation #", xaxs = "i", yaxs = "i", axes = FALSE)
+  axis(1, at = pretty(yr_range[1]:yr_range[2]) %>% round() %>% unique())
+  axis(2, at = pretty(1:nsim) %>% round() %>% unique())
+  box()
   mtext(paste0('Maximum gradient of likelihood \n (green: < ', threshold, ', red: > ', threshold, ')'))
-
-  for(i in 1:nsim) {
-    for(j in 1:length(max_gr[[i]])) {
-      color <- ifelse(max_gr[[i]][j] < threshold, 'green', 'red')
+  
+  lapply(1:nsim, function(i) {
+    lapply(1:length(max_gr[[i]]), function(j) {
       xcoord <- rep(c(Year[[i]][j] - 0.5, Year[[i]][j] + 0.5), each = 2)
       ycoord <- c(i - 0.5, i + 0.5, i + 0.5, i - 0.5)
-      polygon(x = xcoord, y = ycoord, border = 'black', col = color)
-    }
-  }
+      polygon(x = xcoord, y = ycoord, border = 'black', col = ifelse(max_gr[[i]][j] < threshold, 'green', 'red'))
+    })
+  })
+  
   return(invisible())
 }
 
