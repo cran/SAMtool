@@ -18,13 +18,18 @@
 #' }
 #' @export
 prelim_AM <- function(x, Assess, ncpus = NULL, ...) {
-
+  
+  if(is.numeric(ncpus) && !snowfall::sfIsRunning()) {
+    MSEtool::setup(cpus = ncpus)
+    on.exit(snowfall::sfStop())
+  }
+  
   # is Hist?
   if(inherits(x, "Hist")) {
     Data <- x@Data
   } else if(inherits(x, "OM")) {
     message("Generating Hist object from OM via runMSE...")
-    runHist <- runMSE(x, Hist = TRUE, silent = TRUE)
+    runHist <- runMSE(x, Hist = TRUE, silent = TRUE, parallel = snowfall::sfIsRunning())
     Data <- runHist@Data
   } else if(inherits(x, "Data")) {
     Data <- x
@@ -34,10 +39,6 @@ prelim_AM <- function(x, Assess, ncpus = NULL, ...) {
   
   Assess_char <- as.character(substitute(Assess))
   
-  if(is.numeric(ncpus) && !snowfall::sfIsRunning()) {
-    MSEtool::setup(cpus = ncpus)
-    on.exit(snowfall::sfStop())
-  }
   nsim <- nrow(Data@Cat)
   dots <- list(...)
   if(length(dots) > 0) message("\nAdditional arguments to be provided to ", deparse(substitute(Assess)), ":\n", paste(names(dots), collapse = "\n"))
@@ -46,11 +47,10 @@ prelim_AM <- function(x, Assess, ncpus = NULL, ...) {
 
   if(snowfall::sfIsRunning()) snowfall::sfExport(list = c("Assess", "Data"))
   timing <- proc.time()
+  message(paste0("Running ", Assess_char, " with ", nsim, " simulations for ", deparse(substitute(x)), "."))
   if(snowfall::sfIsRunning()) {
-    message("Running ", Assess_char, " with ", nsim, " simulations for ", deparse(substitute(x)), " on ", snowfall::sfCpus(), " CPUs.")
     res <- snowfall::sfClusterApplyLB(1:nsim, Assess, Data = Data, ...)
   } else {
-    message(paste0("Running ", Assess_char, " with ", nsim, " simulations for ", deparse(substitute(x)), "."))
     res <- lapply(1:nsim, Assess, Data = Data, ...)
   }
   timing2 <- (proc.time() - timing)[3]
@@ -229,9 +229,13 @@ plot_msg <- function(convergence_code, Year) {
 plot_iter <- function(x, Year, plot_type = c('line', 'hist'), lab = c("Optimization iterations", "Function evaluations")) {
   plot_type <- match.arg(plot_type)
   lab <- match.arg(lab)
-
+  x_plot <- do.call(c, x)
   if(plot_type == "hist") {
-    hist(do.call(c, x), main = "", xlab = lab)
+    if(all(is.na(x_plot))) { # For Perfect()
+      hist(0, ylim = c(0, 1), main = "", xlab = lab)
+    } else {
+      hist(x_plot[!is.na(x_plot)], main = "", xlab = lab)
+    }
     mtext(paste("Median:", round(median(do.call(c, x), na.rm = TRUE), 2)))
   }
 
@@ -240,9 +244,12 @@ plot_iter <- function(x, Year, plot_type = c('line', 'hist'), lab = c("Optimizat
     yr_range <- range(do.call(c, Year))
 
     color.vec <- rich.colors(nsim)
-    plot(x = NULL, y = NULL, xlim = yr_range,
-         ylim = c(0.9, 1.1) * range(do.call(c, x), na.rm = TRUE),
-         xlab = "MSE Year", ylab = lab)
+    if(all(is.na(x_plot))) {
+      ylim <- c(0, 1)
+    } else {
+      ylim <- c(0.9, 1.1) * range(x_plot, na.rm = TRUE)
+    }
+    plot(x = NULL, y = NULL, xlim = yr_range, ylim = ylim, xlab = "MSE Year", ylab = lab)
     mtext(lab)
     
     lapply(1:nsim, function(i) {

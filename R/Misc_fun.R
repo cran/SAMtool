@@ -69,6 +69,26 @@ tiny_comp <- function(x) {
   return(x_out)
 }
 
+find_na <- function(x, na = 0) {
+  all_na <- all(is.na(x))
+  if(!all_na) {
+    x_out <- x
+    ind <- is.na(x)
+    if(any(ind)) x_out[ind] <- na
+  } else {
+    x_out <- x
+  }
+  return(x_out)
+}
+
+calc_NPR <- function(surv, n_age, plusgroup = TRUE) {
+  NPR <- numeric(n_age)
+  NPR[1] <- 1
+  for(a in 2:n_age) NPR[a] <- NPR[a-1] * surv[a-1]
+  if(plusgroup) NPR[n_age] <- NPR[n_age]/(1 - surv[n_age])
+  return(NPR)
+}
+
 get_F01 <- function(FM, YPR) {
   if(is.null(FM) && is.null(YPR)) stop("F01 can not be used.")
   stopifnot(length(FM) == length(YPR))
