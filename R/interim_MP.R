@@ -122,7 +122,7 @@ make_interim_MP <- function(.Assess = "SCA", .HCR = "HCR_MSY", AddInd = "VB", as
           if(diagnostic != "none") Rec@Misc$diagnostic <- Assess_diag_output$diagnostic
           if(!is.null(do_Assessment@info$Misc)) Rec@Misc <- c(Rec@Misc, do_Assessment@info$Misc)
           
-          Rec@Misc$interim <- list(next_assess_yr = next_assess_yr)
+          Rec@Misc$interim <- list(Cref = NA_real_, Iref = NA_real_, next_assess_yr = next_assess_yr)
           return(Rec)
           
         } else { # There should be a previous assessment to continue the interim procedure for the current year
@@ -135,18 +135,18 @@ make_interim_MP <- function(.Assess = "SCA", .HCR = "HCR_MSY", AddInd = "VB", as
       Cref <- Data@Misc[[x]]$interim$Cref
       Iref <- Data@Misc[[x]]$interim$Iref
       I_y <- switch(type,
-                    "buffer" = interim_get_index(AddInd[1], x, Data, ny),
+                    "buffer" = Assess_I_hist(AddInd[1], Data, x, ny)$I_hist,
                     "mean" =  local({
                       if(is.null(type_par)) type_par <- 3
-                      interim_get_index(AddInd[1], x, Data, seq(ny - type_par + 1, ny)) %>% mean(na.rm = TRUE)
+                      Assess_I_hist(AddInd[1], Data, x, seq(ny - type_par + 1, ny))$I_hist %>% mean(na.rm = TRUE)
                     }),
                     "loess" = local({
-                      I_df <- data.frame(Year = Data@Year, Ind = interim_get_index(AddInd[1], x, Data, 1:ny))
+                      I_df <- data.frame(Year = Data@Year, Ind = Assess_I_hist(AddInd[1], Data, x, 1:ny)$I_hist)
                       if(is.null(type_par)) type_par <- formals(loess)$span
                       fit <- loess(Ind ~ Year, data = I_df, span = type_par)
                       fit$fitted[length(fit$fitted)]
                     }),
-                    "none" = interim_get_index(AddInd[1], x, Data, ny)
+                    "none" = Assess_I_hist(AddInd[1], Data, x, ny)$I_hist
       )
       
       if(type == "buffer") {
@@ -180,15 +180,3 @@ make_interim_MP <- function(.Assess = "SCA", .HCR = "HCR_MSY", AddInd = "VB", as
   return(structure(custom_MP, class = "MP"))
 }
 
-
-interim_get_index <- function(xx, x, Data, y) {
-  if(xx == "B") {
-    Data@Ind[x, y]
-  } else if(xx == "SSB") {
-    Data@SpInd[x, y]
-  } else if(xx == "VB") {
-    Data@VInd[x, y]
-  } else {
-    Data@AddInd[x, suppressWarnings(as.numeric(xx)), y]
-  }
-}
