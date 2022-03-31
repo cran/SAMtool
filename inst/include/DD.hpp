@@ -93,7 +93,6 @@ Type DD(objective_function<Type> *obj) {
   vector<Type> F(ny);
 
   //--INITIALIZE
-  Type Z_equilibrium = F_equilibrium + M;
   Type Seq = S0 * exp(-F_equilibrium);
   Type SprEq = (Seq * Alpha/(1 - Seq) + wk)/(1 - Rho * Seq);
   Type Req;
@@ -180,7 +179,7 @@ Type DD(objective_function<Type> *obj) {
   }
 
   //Summing individual nll and penalties
-  prior -= calc_prior(use_prior, prior_dist, R0, h, SR_type == "BH", log_M, q);
+  prior -= calc_prior(use_prior, prior_dist, R0x, h, SR_type == "BH", log_M, q, rescale);
   Type nll = nll_comp.sum() + penalty + prior;
 
   //-------REPORTING-------//

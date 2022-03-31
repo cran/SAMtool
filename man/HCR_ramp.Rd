@@ -11,7 +11,7 @@ HCR_ramp(
   Assessment,
   reps = 1,
   OCP_type = c("SSB_SSB0", "SSB_SSBMSY", "SSB_dSSB0", "F_FMSY", "F_F01", "F_FSPR"),
-  Ftarget_type = c("FMSY", "F01", "Fmax", "FSPR"),
+  Ftarget_type = c("FMSY", "F01", "Fmax", "FSPR", "abs"),
   LOCP = 0.1,
   TOCP = 0.4,
   relF_min = 0,
@@ -57,13 +57,16 @@ An object of class \linkS4class{Rec} with the TAC recommendation.
 }
 \description{
 An output control rule with a ramp that reduces the target F (used for the TAC recommendation) linearly
-as a function of an operational control point (OCP) such as spawning depletion or spawning biomass relative to that at MSY. The reduction in F is linear when the OCP
-is between the target OCP (TOCP) and the limit OCP (LOCP). Above the TOCP, the target F is maximized. Below the LOCP,
+as a function of an operational control point (OCP) such as spawning depletion or spawning biomass. The reduction in F is linear when the OCP
+is between the target OCP (TOCP) and the limit OCP (LOCP). The target F is maximized at or above the TOCP. Below the LOCP,
 the target F is minimized. For example, the TOCP and LOCP for 40\% and 10\% spawning depletion, respectively, in the 40-10 control rule.
 Ftarget is FMSY above the TOCP and zero below the LOCP. This type of control rule can generalized with more control points (>2) in \link{HCR_segment}.
 Class HCR objects are typically used with function \link{make_MP}.
 }
 \details{
+The catch advice is calculated using the catch equation of the corresponding
+assessment. See \code{Assessment@forecast$catch_eq}, a function that returns the catch advice for a specified \code{Ftarget}.
+
 \emph{Operational control points (OCP_type)}
 
 The following are the available options for harvest control rule inputs, and the source of those values
@@ -94,6 +97,7 @@ in the \linkS4class{Assessment} object is specified:
 \code{Asesssment@forecast[["per_recruit"]]}.
 \item \code{"FSPR"}: Fishing mortality relative to F_SPR% (the F that produces the spawning potential ratio specified in
 \code{"SPR_targ"}, calculated from data frame in \code{Asesssment@forecast[["per_recruit"]]}.
+\item \code{"abs"}: Fishing mortality is independent of any model output and is explicitly specified in \code{relF}.
 }
 }
 \section{Functions}{
@@ -141,6 +145,12 @@ plot(Brel, Frel,
     ylab = expression(F[target]~":"~~F/F[MSY]), 
     ylim = c(0, 1), type = "l")
 abline(v = c(0.4, 0.8), col = "red", lty = 2)
+
+# A harvest control rule as a function of BMSY, with F independent of model output, 
+# i.e., specify F in relF argument (here maximum F of 0.1)
+SCA_80_40 <- make_MP(SCA, HCR_ramp, OCP_type = "SSB_SSBMSY", LOCP = 0.4, TOCP = 0.8, 
+                     relF_min = 0, relF_max = 0.1)
+
 }
 \references{
 Deroba, J.J. and Bence, J.R. 2008. A review of harvest policies: Understanding relative

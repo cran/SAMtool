@@ -9,20 +9,20 @@ Type log2(Type x) {
 }
 
 template<class Type>
-matrix<Type> generate_ALK(vector<Type> lbin, matrix<Type> len_age, matrix<Type> SD_LAA, 
+matrix<Type> generate_PLA(vector<Type> lbin, matrix<Type> len_age, matrix<Type> SD_LAA, 
                           int n_age, int nlbin, int y) {
-  matrix<Type> ALK(n_age, nlbin);
+  matrix<Type> PLA(n_age, nlbin);
   for(int a=0;a<n_age;a++) {
     for(int j=0;j<nlbin;j++) {
       if(j==nlbin-1) {
-        ALK(a,j) = 1 - pnorm(lbin(j), len_age(y,a), SD_LAA(y,a));
+        PLA(a,j) = 1 - pnorm(lbin(j), len_age(y,a), SD_LAA(y,a));
       } else {
-        ALK(a,j) = pnorm(lbin(j+1), len_age(y,a), SD_LAA(y,a));
-        if(j>0) ALK(a,j) -= pnorm(lbin(j), len_age(y,a), SD_LAA(y,a));
+        PLA(a,j) = pnorm(lbin(j+1), len_age(y,a), SD_LAA(y,a));
+        if(j>0) PLA(a,j) -= pnorm(lbin(j), len_age(y,a), SD_LAA(y,a));
       }
     }
   }
-  return ALK;
+  return PLA;
 }
 
 template<class Type>
@@ -65,7 +65,8 @@ Type sum_BPR(vector<Type> NPR, matrix<Type> wt, int n_age, int y) {
 
 template<class Type>
 array<Type> calc_vul(matrix<Type> vul_par, vector<int> vul_type, matrix<Type> Len_age, vector<Type> &LFS, vector<Type> &L5,
-                     vector<Type> &Vmaxlen, Type Linf, int nfleet, matrix<int> sel_block, int nsel_block, Type &prior) {
+                     vector<Type> &Vmaxlen, Type Linf, int nfleet, matrix<int> sel_block, int nsel_block, Type &prior,
+                     matrix<int> est_vul) {
   array<Type> vul(Len_age.rows(), Len_age.cols(), nfleet);
   vul.setZero();
   vector<Type> sls(nsel_block);
@@ -73,7 +74,8 @@ array<Type> calc_vul(matrix<Type> vul_par, vector<int> vul_type, matrix<Type> Le
 
   for(int b=0;b<nsel_block;b++) { // Parameters for sel_block
     if(vul_type(b) <= 0 && vul_type(b) > -2) { // Logistic or dome
-      prior -= dnorm_(vul_par(0,b), Type(0), Type(3), true) + dnorm_(vul_par(1,b), Type(0), Type(3), true);
+      if(est_vul(0,b)) prior -= dnorm_(vul_par(0,b), Type(0), Type(3), true);
+      if(est_vul(1,b)) prior -= dnorm_(vul_par(1,b), Type(0), Type(3), true);
 
       LFS(b) = invlogit(vul_par(0,b)) * 0.99 * Linf;
       L5(b) = LFS(b) - exp(vul_par(1,b));
@@ -83,8 +85,17 @@ array<Type> calc_vul(matrix<Type> vul_par, vector<int> vul_type, matrix<Type> Le
       } else { // Dome
         Vmaxlen(b) = invlogit(vul_par(2,b));
         srs(b) = (Linf - LFS(b))/pow(-log2(Vmaxlen(b)), 0.5);
-
-        prior -= dbeta_(Vmaxlen(b), Type(1.01), Type(1.01), true);
+        if(est_vul(2,b)) {
+          Type jac = Vmaxlen(b) - Vmaxlen(b) * Vmaxlen(b);
+          prior -= dbeta_(Vmaxlen(b), Type(1.01), Type(1.01), true) + log(jac);
+        }
+      }
+    } else if(vul_type(b) == -2) { // Free parameters - adding priors only
+      for(int a=0;a<Len_age.cols();a++) {
+        if(est_vul(a,b)) {
+          Type v = invlogit(vul_par(a,b));
+          prior -= dbeta_(v, Type(1.01), Type(1.01), true) + log(v - v * v);
+        }
       }
     }
   }
@@ -119,7 +130,8 @@ array<Type> calc_vul(matrix<Type> vul_par, vector<int> vul_type, matrix<Type> Le
 
 template<class Type>
 array<Type> calc_ivul(matrix<Type> vul_par, vector<int> vul_type, matrix<Type> Len_age, vector<Type> &LFS, vector<Type> &L5,
-                      vector<Type> &Vmaxlen, Type Linf, matrix<Type> mat, array<Type> fleet_var, Type &prior) {
+                      vector<Type> &Vmaxlen, Type Linf, matrix<Type> mat, array<Type> fleet_var, Type &prior,
+                      matrix<int> est_vul) {
   array<Type> vul(Len_age.rows(), Len_age.cols(), vul_type.size());
   vul.setZero();
 
@@ -135,14 +147,17 @@ array<Type> calc_ivul(matrix<Type> vul_par, vector<int> vul_type, matrix<Type> L
       }
     } else if(vul_type(ff) == -2) { // free parameters
       for(int a=0;a<Len_age.cols();a++) {
-        prior -= dbeta_(invlogit(vul_par(a,ff)), Type(1.01), Type(1.01), true);
-        for(int y=0;y<Len_age.rows();y++) vul(y,a,ff) = invlogit(vul_par(a,ff));
+        Type v = invlogit(vul_par(a,ff));
+        if(est_vul(a,ff)) {
+          prior -= dbeta_(v, Type(1.01), Type(1.01), true) + log(v - v * v);
+        }
+        for(int y=0;y<Len_age.rows();y++) vul(y,a,ff) = v;
       }
     } else if(vul_type(ff) > 0) { // Index mirrored to fleet
       vul.col(ff) = fleet_var.col(vul_type(ff) - 1);
     } else { // Logistic or dome
-      prior -= dnorm_(vul_par(0,ff), Type(0), Type(3), true);
-      prior -= dnorm_(vul_par(1,ff), Type(0), Type(3), true);
+      if(est_vul(0,ff)) prior -= dnorm_(vul_par(0,ff), Type(0), Type(3), true);
+      if(est_vul(1,ff)) prior -= dnorm_(vul_par(1,ff), Type(0), Type(3), true);
 
       LFS(ff) = invlogit(vul_par(0,ff)) * 0.99 * Linf;
       L5(ff) = LFS(ff) - exp(vul_par(1,ff));
@@ -151,7 +166,11 @@ array<Type> calc_ivul(matrix<Type> vul_par, vector<int> vul_type, matrix<Type> L
         Vmaxlen(ff) = 1;
       } else { // Dome
         Vmaxlen(ff) = invlogit(vul_par(2,ff));
-        prior -= dbeta_(Vmaxlen(ff), Type(1.01), Type(1.01), true);
+        
+        if(est_vul(2,ff)) {
+          Type jac = Vmaxlen(ff) - Vmaxlen(ff) * Vmaxlen(ff);
+          prior -= dbeta_(Vmaxlen(ff), Type(1.01), Type(1.01), true) + log(jac);
+        }
       }
 
       for(int y=0;y<Len_age.rows();y++) {

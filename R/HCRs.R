@@ -2,8 +2,8 @@
 #' Segmented harvest control rules
 #' 
 #' A linear segmented output control rule where the target F (used for the TAC recommendation) 
-#' is a function of an operational control point (OCP) such as spawning depletion or spawning biomass relative to that at MSY. 
-#' The joints of the HCR are specified by arguments \code{OCP} and \code{relF}. Beyond the range of \code{OCP}, the response will be flat.
+#' is a function of an operational control point (OCP) such as spawning depletion or spawning biomass. 
+#' The segments of the HCR are specified by arguments \code{OCP} and \code{relF}. Beyond the range of \code{OCP}, the response will be flat.
 #' \link{HCR_ramp} uses \code{HCR_segment} with two control points.
 #' 
 #' @param Assessment An object of class \linkS4class{Assessment} with estimates of
@@ -20,6 +20,10 @@
 #' @return An object of class \linkS4class{Rec} with the TAC recommendation.
 #' @author Q. Huynh
 #' @details 
+#' 
+#' The catch advice is calculated using the catch equation of the corresponding
+#' assessment. See \code{Assessment@forecast$catch_eq}, a function that returns the catch advice for a specified \code{Ftarget}.
+#' 
 #' \emph{Operational control points (OCP_type)}
 #' 
 #' The following are the available options for harvest control rule inputs, and the source of those values
@@ -50,14 +54,19 @@
 #' \code{Asesssment@@forecast[["per_recruit"]]}.
 #' \item \code{"FSPR"}: Fishing mortality relative to F_SPR% (the F that produces the spawning potential ratio specified in
 #' \code{"SPR_targ"}, calculated from data frame in \code{Asesssment@@forecast[["per_recruit"]]}.
+#' \item \code{"abs"}: Fishing mortality is independent of any model output and is explicitly specified in \code{relF}.
 #' }
 #' 
 #' @examples 
-#' # This is an MP with a 40-10 harvest control rule
+#' # This is an MP with a 40-10 harvest control rule (using FMSY)
 #' DD_40_10 <- make_MP(DD_TMB, HCR_segment, OCP_type = "SSB_SSB0", OCP = c(0.1, 0.4), relF = c(0, 1)) 
+#' #' 
+#' # This is an MP with a 40-10 harvest control rule with a maximum F of 0.1
+#' DD_40_10 <- make_MP(DD_TMB, HCR_segment, OCP_type = "SSB_SSB0", 
+#'                     Ftarget_type = "abs", OCP = c(0.1, 0.4), relF = c(0, 0.1)) 
 #' @export
 HCR_segment <- function(Assessment, reps = 1, OCP_type = c("SSB_SSB0", "SSB_SSBMSY", "SSB_dSSB0", "F_FMSY", "F_F01", "F_FSPR"),
-                        Ftarget_type = c("FMSY", "F01", "Fmax", "FSPR"), 
+                        Ftarget_type = c("FMSY", "F01", "Fmax", "FSPR", "abs"), 
                         OCP = c(0.1, 0.4), relF = c(0, 1), SPR_OCP, SPR_targ, ...) {
   dots <- list(...)
   OCP_type <- match.arg(OCP_type)
@@ -132,7 +141,7 @@ HCR_segment <- function(Assessment, reps = 1, OCP_type = c("SSB_SSB0", "SSB_SSBM
         } 
       } else if(Ftarget_type == "F01") {
         if(!is.null(Assessment@forecast$per_recruit$F01)) {
-          Fout <- Assessment@forecast$per_recruit$F01
+          Fout <- alpha * Assessment@forecast$per_recruit$F01[1]
         } else if(!is.null(Assessment@forecast$per_recruit$U)) {
           U01 <- get_F01(Assessment@forecast$per_recruit$U, Assessment@forecast$per_recruit$YPR)
           Fout <- -log(1 - alpha * U01)
@@ -141,7 +150,7 @@ HCR_segment <- function(Assessment, reps = 1, OCP_type = c("SSB_SSB0", "SSB_SSBM
         }
       } else if(Ftarget_type == "Fmax") {
         if(!is.null(Assessment@forecast$per_recruit$Fmax)) {
-          Fout <- Assessment@forecast$per_recruit$Fmax
+          Fout <- alpha * Assessment@forecast$per_recruit$Fmax[1]
         } else if(!is.null(Assessment@forecast$per_recruit$U)) {
           Umax <- get_Fmax(Assessment@forecast$per_recruit$U, Assessment@forecast$per_recruit$YPR)
           Fout <- -log(1 - alpha * Umax)
@@ -161,6 +170,8 @@ HCR_segment <- function(Assessment, reps = 1, OCP_type = c("SSB_SSB0", "SSB_SSBM
           Fout <- alpha * get_FSPR(Assessment@forecast$per_recruit$FM, Assessment@forecast$per_recruit$SPR,
                                    target = SPR_targ)
         }
+      } else if(Ftarget_type == "abs") {
+        Fout <- alpha
       }
       
       if(exists("Fout", inherits = FALSE) && !is.na(Fout)) {
@@ -185,8 +196,8 @@ class(HCR_segment) <- "HCR"
 #' Linearly ramped harvest control rules
 #'
 #' An output control rule with a ramp that reduces the target F (used for the TAC recommendation) linearly
-#' as a function of an operational control point (OCP) such as spawning depletion or spawning biomass relative to that at MSY. The reduction in F is linear when the OCP
-#' is between the target OCP (TOCP) and the limit OCP (LOCP). Above the TOCP, the target F is maximized. Below the LOCP,
+#' as a function of an operational control point (OCP) such as spawning depletion or spawning biomass. The reduction in F is linear when the OCP
+#' is between the target OCP (TOCP) and the limit OCP (LOCP). The target F is maximized at or above the TOCP. Below the LOCP,
 #' the target F is minimized. For example, the TOCP and LOCP for 40\% and 10\% spawning depletion, respectively, in the 40-10 control rule.
 #' Ftarget is FMSY above the TOCP and zero below the LOCP. This type of control rule can generalized with more control points (>2) in \link{HCR_segment}.
 #' Class HCR objects are typically used with function \link{make_MP}.
@@ -245,9 +256,15 @@ class(HCR_segment) <- "HCR"
 #'     ylab = expression(F[target]~":"~~F/F[MSY]), 
 #'     ylim = c(0, 1), type = "l")
 #' abline(v = c(0.4, 0.8), col = "red", lty = 2)
+#' 
+#' # A harvest control rule as a function of BMSY, with F independent of model output, 
+#' # i.e., specify F in relF argument (here maximum F of 0.1)
+#' SCA_80_40 <- make_MP(SCA, HCR_ramp, OCP_type = "SSB_SSBMSY", LOCP = 0.4, TOCP = 0.8, 
+#'                      relF_min = 0, relF_max = 0.1)
+#'
 #' @export
 HCR_ramp <- function(Assessment, reps = 1, OCP_type = c("SSB_SSB0", "SSB_SSBMSY", "SSB_dSSB0", "F_FMSY", "F_F01", "F_FSPR"),
-                     Ftarget_type = c("FMSY", "F01", "Fmax", "FSPR"), 
+                     Ftarget_type = c("FMSY", "F01", "Fmax", "FSPR", "abs"), 
                      LOCP = 0.1, TOCP = 0.4, relF_min = 0, relF_max = 1, SPR_OCP = 0.4, SPR_targ = 0.4, ...) {
   HCR_segment(Assessment = Assessment, reps = reps, OCP_type = OCP_type, Ftarget_type = Ftarget_type,
               OCP = c(LOCP, TOCP), relF = c(relF_min, relF_max), SPR_OCP = SPR_OCP, SPR_targ = SPR_targ, ...)
@@ -263,6 +280,7 @@ HCR40_10 <- function(Assessment, reps = 1, Ftarget_type = "FMSY", SPR_targ = 0.4
               relF = c(0, 1), SPR_targ = SPR_targ, ...)
 }
 class(HCR40_10) <- "HCR"
+
 
 
 #' @describeIn HCR_ramp More conservative than \code{HCR40_10}, with LOCP and TOCP of 0.2 and 0.6
@@ -284,14 +302,17 @@ class(HCR80_40MSY) <- "HCR"
 
 #' Harvest control rule to fish at some fraction of maximum sustainable yield
 #'
-#' A simple control rule that specifies the total allowable catch (TAC) to be the
-#' product of current vulnerable biomass and UMSY.
+#' A simple control rule that specifies the total allowable catch (TAC) as a function of the abundance of the first 
+#' projection year and some fraction of FMSY/UMSY. 
 #'
 #' @param Assessment An object of class \linkS4class{Assessment} with estimates of
 #' FMSY or UMSY and vulnerable biomass in terminal year.
 #' @param reps The number of stochastic samples of the TAC recommendation.
 #' @param MSY_frac The fraction of FMSY or UMSY for calculating the TAC (e.g. MSY_frac = 0.75 fishes at 75\% of FMSY).
 #' @param ... Miscellaneous arguments.
+#' @details 
+#' The catch advice is calculated using the catch equation of the corresponding
+#' assessment. See \code{Assessment@forecast$catch_eq}, a function that returns the catch advice for a specified \code{Ftarget}.
 #' @return An object of class \linkS4class{Rec} with the TAC recommendation.
 #' @author Q. Huynh
 #' @references
@@ -332,6 +353,7 @@ class(HCR_MSY) <- "HCR"
 #' @param ... Miscellaneous arguments.
 #' @return An object of class \linkS4class{Rec} with the TAC recommendation.
 #' @author Q. Huynh
+#' @inherit HCR_MSY details 
 #' @references
 #' Deroba, J.J. and Bence, J.R. 2008. A review of harvest policies: Understanding relative
 #' performance of control rules. Fisheries Research 94:210-223.
@@ -358,6 +380,37 @@ HCR_escapement <- function(Assessment, reps = 1, OCP_type = "SSB_SSB0", OCP_thre
               Ftarget_type = Ftarget_type, relF = c(0, relF_max), ...)
 }
 class(HCR_escapement) <- "HCR"
+
+#' Simple fixed F harvest control rule
+#'
+#' A simple control rule that explicitly specifies the target apical F independent of any model.
+#'
+#' @param Assessment An object of class \linkS4class{Assessment} with estimates of next year's abundance or biomass.
+#' @param reps The number of replicates of the TAC recommendation (not used).
+#' @param Ftarget The value of F.
+#' @return An object of class \linkS4class{Rec} with the TAC recommendation.
+#' @author Q. Huynh
+#' @seealso \link{make_MP} \link{HCR_ramp}#' 
+#' @inherit HCR_MSY details 
+#' @examples
+#' # create an MP to run in closed-loop MSE (fishes at F = 0.2)
+#' F0.2 <- make_MP(SP, HCR_fixedF, Ftarget = 0.2)
+#' 
+#' \donttest{
+#' myOM <- MSEtool::runMSE(MSEtool::testOM, MPs = c("FMSYref", "F0.2"))
+#' }
+#' @export
+HCR_fixedF <- function(Assessment, reps = 1, Ftarget = 0.1) {
+  if(Assessment@conv) {
+    TAC <- calculate_TAC(Assessment, Ftarget = Ftarget)
+  } else {
+    TAC <- NA_real_
+  }
+  Rec <- new("Rec")
+  Rec@TAC <- rep(TAC, reps)
+  return(Rec)
+}
+class(HCR_fixedF) <- "HCR"
 
 #' Generic linear harvest control rule based on biomass
 #'

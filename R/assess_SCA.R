@@ -26,11 +26,7 @@
 #' Output is re-converted back to original units.
 #' @param max_age Integer, the maximum age (plus-group) in the model.
 #' @param start Optional list of starting values. Entries can be expressions that are evaluated in the function. See details.
-#' @param prior A named list (R0, h, M, and q) to provide the mean and standard deviations of prior distributions for those parameters. R0, index q, and M priors are
-#' lognormal (provide the mean in normal space, SD in lognormal space). Beverton-Holt steepness uses a beta prior, while Ricker steepness uses a normal prior.
-#' For index q, provide a matrix for nsurvey rows and 2 columns (for mean and SD), with NA in rows corresponding to indices without priors
-#' For all others, provide a length-2 vector for the mean and SD.
-#' See vignette for full description.
+#' @param prior A named list for the parameters of any priors to be added to the model. See below.
 #' @param fix_h Logical, whether to fix steepness to value in \code{Data@@steep} in the model for \code{SCA}. This only affects
 #' calculation of reference points for \code{SCA2}.
 #' @param fix_F_equilibrium Logical, whether the equilibrium fishing mortality prior to the first year of the model
@@ -65,6 +61,23 @@
 #' @param inner.control A named list of arguments for optimization of the random effects, which
 #' is passed on to \code{\link[TMB]{newton}}.
 #' @param ... Other arguments to be passed.
+#' 
+#' @section Priors:
+#' The following priors can be added as a named list, e.g., \code{prior = list(M = c(0.25, 0.15), h = c(0.7, 0.1)}. 
+#' For each parameter below, provide a vector of values as described:
+#' 
+#' \itemize{
+#' \item \code{R0} - A vector of length 3. The first value indicates the distribution of the prior: \code{1} for lognormal, \code{2} for uniform
+#' on \code{log(R0)}, \code{3} for uniform on R0. If lognormal, the second and third values are the prior mean (in normal space) and SD (in log space).
+#' Otherwise, the second and third values are the lower and upper bounds of the uniform distribution (values in normal space).
+#' \item \code{h} - A vector of length 2 for the prior mean and SD, both in normal space. Beverton-Holt steepness uses a beta distribution, 
+#' while Ricker steepness uses a normal distribution.
+#' \item \code{M} - A vector of length 2 for the prior mean (in normal space) and SD (in log space). Lognormal prior.
+#' \item \code{q} - A matrix for nsurvey rows and 2 columns. The first column is the prior mean (in normal space) and the second column 
+#' for the SD (in log space). Use \code{NA} in rows corresponding to indices without priors.
+#' }
+#' See online documentation for more details.
+#' 
 #' @details
 #' The basic data inputs are catch (by weight), index (by weight/biomass), and catch-at-age matrix (by numbers).
 #' 
@@ -256,7 +269,12 @@ SCA_ <- function(x = 1, Data, AddInd = "B", SR = c("BH", "Ricker", "none"),
   if(any(is.na(C_hist) | C_hist < 0)) warning("Error. Catch time series is not complete.")
   
   n_y <- length(C_hist)
-  M <- rep(Data@Mort[x], n_age)
+  if(any(names(dots) == "M_at_age") && dots$M_at_age) {
+    M <- Data@Misc$StockPars$M_ageArray[x, , n_y] * Data@Obs$Mbias[x]
+    prior$M <- NULL
+  } else {
+    M <- rep(Data@Mort[x], n_age)
+  }
   a <- Data@wla[x]
   b <- Data@wlb[x]
   Linf <- Data@vbLinf[x]
@@ -398,7 +416,7 @@ SCA_ <- function(x = 1, Data, AddInd = "B", SR = c("BH", "Ricker", "none"),
     if(tv_M == "none") {
       M_bounds <- c(0, 1e4)
     } else {
-      M_bounds <- c(0.75, 1.25) * mean(M)
+      M_bounds <- c(0.75, 1.25) * range(M)
     }
   }
   
@@ -408,6 +426,7 @@ SCA_ <- function(x = 1, Data, AddInd = "B", SR = c("BH", "Ricker", "none"),
                CAL_hist = apply(CAL_hist, 1, tiny_comp) %>% t(), CAL_n = CAL_n_rescale,
                LWT = c(LWT$Index, LWT$CAA, LWT$CAL, LWT$Catch),
                n_y = n_y, n_age = n_age, n_bin = ncol(PLA), 
+               M_data = M,
                weight = Wa, PLA = PLA, mat = mat_age, vul_type = vulnerability,
                SR_type = SR, comp_dist = comp_dist, catch_eq = catch_eq,
                est_early_rec_dev = est_early_rec_dev, est_rec_dev = est_rec_dev, yindF = as.integer(0.5 * n_y),
