@@ -1,6 +1,6 @@
-cc137f444e19950e8b99729f33b1ef40 *DESCRIPTION
+45be02e4660e8ed3326c1e7d46a77608 *DESCRIPTION
 1091c107214871402517574edef18929 *NAMESPACE
-9fceb7bf8edb91cef97ad93d7eb6a06b *NEWS.md
+c5c8e8750dcd4317d33696cad0d80b67 *NEWS.md
 92274cad70436c7deff93b549badc97a *R/Ancillary_Indicators.R
 91f55456caacfe089c604c797516e0da *R/HCRs.R
 d18fcc0215ed86310309fc5cc3e807cd *R/Misc_fun.R
@@ -9,7 +9,7 @@ bb3612883887e1491370492b495cf197 *R/RCM_assess.R
 2c557a276a0555c8e66a0db65c46a326 *R/RCM_data.R
 711c043d5d63553435469ae6a5f1c4f7 *R/RCM_est.R
 14814e921488513d1591f031dc35909d *R/RCM_int.R
-9e4ab23ac771298e9c5c043545f4ed5b *R/RCM_rmd.R
+bab82d9f8b963cb3e5d70eafcc5d3d13 *R/RCM_rmd.R
 e880e573fa3d7e0ae32913641afba7a0 *R/SAMtool-package.R
 962e6293a47a91ce58122b2f2f916a3b *R/assess_DD.R
 16fbfca720c36a26e6d09c675f254450 *R/assess_SCA.R
@@ -44,7 +44,7 @@ d7cc23789df377b754f2f03171f533e9 *R/rmd_report.R
 d296fc31a698cc7801e900dbb284eca4 *R/z_MPs.R
 4962d1a19cba08d36d8e315343f1e4de *R/zzz.R
 6cf019417ff5cd6e5fb7a45a474abdee *README.md
-255f65ef7647a02121c89eb48207ee7d *build/partial.rdb
+453b2b9012a037ef8fac9e8aa25c1a00 *build/partial.rdb
 eb7c1691b6e8c9e1a6c270ec565a956d *data/pcod.rda
 bb1b13a174ffd95d912d08fe58df4f78 *data/swordfish.rda
 98f4823b0ca44ff9a9ccc2f5f1ee0b05 *inst/include/DD.hpp
