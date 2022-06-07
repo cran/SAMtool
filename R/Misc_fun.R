@@ -16,13 +16,14 @@ hist.numeric <- function(x, ...) {
 
 #' Get the SAMtool vignettes
 #'
-#' A convenient function to open a web browser with the SAMtool package vignettes
+#' A convenient function to open a web browser with the openMSE documentation vignettes
 #' @examples
 #' userguide()
 #' 
-#' @return Displays a browser webpage to the package vignette.
+#' @return Displays a browser webpage to the openMSE website.
+#' @importFrom utils browseURL
 #' @export
-userguide <- function() browseVignettes("SAMtool")
+userguide <- function() browseURL("https://openmse.com")
 
 
 squeeze <- function(x) (1 - .Machine$double.eps) * (x - 0.5) + 0.5
@@ -449,4 +450,31 @@ solve_F <- function(N, M, plusgroup = TRUE) {
   return(FM)
 }
 
+message <- function(...) {
+  if(requireNamespace("usethis", quietly = TRUE)) {
+    dots <- list(...)
+    do.call(c, dots) %>% paste0(collapse = "") %>% usethis::ui_done()
+  } else {
+    base::message(...)
+  }
+}
+
+warning <- function(...) {
+  if(requireNamespace("usethis", quietly = TRUE)) {
+    dots <- list(...)
+    do.call(c, dots) %>% paste0(collapse = "") %>% usethis::ui_warn()
+  } else {
+    base::warning(...)
+  }
+}
+
+
+stop <- function(..., call. = TRUE, domain = NULL) {
+  if(requireNamespace("usethis", quietly = TRUE)) {
+    dots <- list(...)
+    do.call(c, dots) %>% paste0(collapse = "") %>% usethis::ui_stop()
+  } else {
+    base::stop(..., call. = call., domain = domain)
+  }
+}
 
