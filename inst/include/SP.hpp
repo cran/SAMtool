@@ -22,7 +22,9 @@ Type SP(objective_function<Type> *obj) {
   DATA_INTEGER(nstep);
   DATA_SCALAR(dt);
   DATA_INTEGER(n_itF);
-  DATA_VECTOR(r_prior);
+  DATA_IVECTOR(use_prior); // Boolean vector, whether to set a prior for r, MSY
+  DATA_MATRIX(prior_dist); // Distribution of priors, columns indicate parameters of distribution calculated in R (see make_prior_SP fn)
+  DATA_INTEGER(sim_process_error);
   //DATA_VECTOR_INDICATOR(keep, I_hist);
 
   PARAMETER(log_FMSY);
@@ -52,25 +54,46 @@ Type SP(objective_function<Type> *obj) {
   Type r = MSY * n_term / K; // r = FMSY * n
 
   vector<Type> B(ny+1);
+  vector<Type> B_dev(ny);
   vector<Type> SP(ny);
   vector<Type> Cpred(ny);
   matrix<Type> Ipred(ny,nsurvey);
   vector<Type> F(ny);
+  vector<Type> log_B_dev_sim = log_B_dev;
+  
+  B_dev.fill(1);
 
   Type penalty = 0;
   Type prior = 0;
 
-  if(r_prior(0) > 0) prior -= dnorm_(r, r_prior(0), r_prior(1), true) - log(r); // r prior with log-Jacobian transformation, exact with fixed n
+  if(use_prior(0)) { // log-normal r prior with log-Jacobian transformation = 0, exact with fixed n
+    prior -= dnorm_(log(r), prior_dist(0,0), prior_dist(0,1), true);
+  }
+  if(use_prior(1)) { // log-normal MSY prior with log-Jacobian transformation = 0
+    prior -= dnorm_(log(MSY), prior_dist(1,0), prior_dist(1,1), true);
+  }
 
   B(0) = dep * K;
   for(int y=0;y<ny;y++) {
-    if(est_B_dev(y)) B(y) *= exp(log_B_dev(y) - 0.5 * tau * tau);
+    if(est_B_dev(y)) {
+      B_dev(y) = exp(log_B_dev(y) - 0.5 * tau * tau);
+      SIMULATE if(sim_process_error) {
+        log_B_dev_sim(y) = rnorm(log_B_dev(y), tau);
+        B_dev(y) = exp(log_B_dev_sim(y) - 0.5 * tau * tau);
+      }
+      B(y) *= B_dev(y);
+    }
+    
     if(C_hist(y) > 1e-8) {
       F(y) = SP_F(C_hist(y)/(C_hist(y) + B(y)), C_hist(y), MSY, K, n, n_term, dt, nstep, n_itF, Cpred, B, y, penalty);
     } else {
       F(y) = SP_F(C_hist(y)/(C_hist(y) + B(y)), C_hist(y), MSY, K, n, n_term, dt, 1, n_itF, Cpred, B, y, penalty);
     }
     SP(y) = B(y+1) - B(y) + Cpred(y);
+    
+    SIMULATE {
+      C_hist(y) = Cpred(y);
+    }
   }
 
   vector<Type> q = calc_q(I_hist, B, Ipred, nsurvey);
@@ -83,8 +106,14 @@ Type SP(objective_function<Type> *obj) {
       if(I_lambda(sur) > 0 && !R_IsNA(asDouble(I_hist(y,sur)))) {
         if(fix_sigma) {
           nll_comp(sur) -= dnorm_(log(I_hist(y,sur)), log(Ipred(y,sur)), I_sd(y,sur), true);
+          SIMULATE {
+            I_hist(y,sur) = exp(rnorm(log(Ipred(y,sur)), I_sd(y,sur)));
+          }
         } else {
           nll_comp(sur) -= dnorm(log(I_hist(y,sur)), log(Ipred(y,sur)), sigma(sur), true);
+          SIMULATE {
+            I_hist(y,sur) = exp(rnorm(log(Ipred(y,sur)), sigma(sur)));
+          }
         }
       }
     }
@@ -134,6 +163,12 @@ Type SP(objective_function<Type> *obj) {
   REPORT(nll);
   REPORT(penalty);
   REPORT(prior);
+  
+  SIMULATE {
+    REPORT(C_hist);
+    REPORT(I_hist);
+    REPORT(log_B_dev_sim);
+  }
 
   return nll;
 

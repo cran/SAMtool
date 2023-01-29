@@ -28,6 +28,8 @@ RCM(OM, data, ...)
   drop_nonconv = FALSE,
   drop_highF = FALSE,
   control = list(iter.max = 2e+05, eval.max = 4e+05),
+  start = list(),
+  map = list(),
   ...
 )
 
@@ -48,6 +50,8 @@ RCM(OM, data, ...)
   drop_nonconv = FALSE,
   drop_highF = FALSE,
   control = list(iter.max = 2e+05, eval.max = 4e+05),
+  start = list(),
+  map = list(),
   ...
 )
 
@@ -68,6 +72,8 @@ RCM(OM, data, ...)
   drop_nonconv = FALSE,
   drop_highF = FALSE,
   control = list(iter.max = 2e+05, eval.max = 4e+05),
+  start = list(),
+  map = list(),
   ...
 )
 }
@@ -103,7 +109,7 @@ see Additional arguments section for setup of survey selectivity parameters and 
 
 \item{max_F}{The maximum F for any fleet in the scoping model (higher F's in the model are penalized in the objective function). See also \code{drop_highF}.}
 
-\item{cores}{Integer for the number of CPU cores for the stock reduction analysis.}
+\item{cores}{Integer for the number of CPU cores (set greater than 1 for parallel processing).}
 
 \item{integrate}{Logical, whether to treat recruitment deviations as penalized parameters in the likelihood (FALSE) or random effects to be marginalized out of the likelihood (TRUE).}
 
@@ -114,6 +120,10 @@ see Additional arguments section for setup of survey selectivity parameters and 
 \item{drop_highF}{Logical, whether to drop fits of the RCM where F = \code{max_F}.}
 
 \item{control}{A named list of arguments (e.g, max. iterations, etc.) for optimization, to be passed to the control argument of \code{\link[stats]{nlminb}}.}
+
+\item{start}{A list of starting values for the TMB model. See details.}
+
+\item{map}{A list of \code{map} argument to TMB models to override defaults. See \link[TMB]{MakeADFun} and details.}
 
 \item{ESS}{A vector of length two. A shortcut method to setting the maximum multinomial sample size of the age and length compositions. 
 Not used when data are provided in a \linkS4class{RCMdata} object.}
@@ -245,6 +255,17 @@ a-th row to observed age. Thus, all rows should sum to 1. Default is an identity
 For \code{RCM}, additional arguments can be passed to the model via \code{...}:
 
 \itemize{
+\item plusgroup: Logical for whether the maximum age is a plusgroup or not. By default, TRUE.
+\item fix_dome: Logical for whether the dome selectivity parameter for fleets is fixed. Used primarily for backwards compatibility, this is overridden by map_vul_par.
+\item resample: Logical, whether the OM conditioning parameters (recruitment, fishing mortality, SSB, selectivity, etc.) are obtained by sampling the Hessian matrix from
+a single model fit. By default FALSE. This feature requires identical biological parameters among simulations.
+}
+}
+
+\section{start and map}{
+
+Starting values can be specified in a named list for the following:
+\itemize{
 \item vul_par: A matrix of 3 rows and nfleet columns for starting values for fleet selectivity. The three rows correspond
 to LFS (length of full selectivity), L5 (length of 5 percent selectivity), and Vmaxlen (selectivity at length Linf). By default,
 the starting values are values from the OM object. If any selectivity = "free", then this matrix needs to be of maxage+1 rows where
@@ -255,19 +276,20 @@ If any \code{s_selectivity = "free"}, then this matrix needs to be of maxage+1 r
 the row specifies the selectivity at age. 
 \item log_rec_dev: A numeric vector of length nyears for the starting values of the log-recruitment deviations.
 \item log_early_rec_dev: A numeric vector of length OM@maxage for the starting values of the recruitment deviations controlling the abundance-at-age in the first year of the model.
-\item map_vul_par: An integer matrix of the same dimension as vul_par. This is the 'map' argument for vul_par in TMB, see \link[TMB]{MakeADFun}, which indicates whether selectivity parameters are fixed
-or estimated. If an entry is \code{NA}, the corresponding parameter is fixed in the model to the starting
-value. Otherwise, an integer for each independent parameter. By default, selectivity is fixed if there are no age or length composition for that fleet
+}
+
+Parameters can be fixed with the map argument (also a named list, corresponding to the start list). Each
+vector or matrix in the map argument will be the same dimension as in the start entry. If an entry is \code{NA}, the corresponding parameter is fixed in the model to the starting
+value. Otherwise, an integer for each independent parameter, i.e., shared or mirrored parameters get the same integer entry.
+
+\itemize{
+\item vul_par: An integer matrix of the same dimension as vul_par. By default, selectivity is fixed if there are no age or length composition for that fleet
 or survey, otherwise estimated. Unused cells in the vul_par matrix should be given NA in the map matrix.
-\item map_ivul_par: The map argument for the survey selectivity parameters (same dimension as ivul_par). Placeholder parameters should have a map value of NA.
-\item map_log_early_rec_dev: A vector of length OM@maxage that indexes which recruitment deviates for the cohorts in the first year of the model are fixed (using NA) or estimated (a separate integer).
+\item ivul_par: The map argument for the survey selectivity parameters (same dimension as ivul_par). Placeholder parameters should have a map value of NA.
+\item log_early_rec_dev: A vector of length OM@maxage that indexes which recruitment deviates for the cohorts in the first year of the model are fixed (using NA) or estimated (a separate integer).
 By default, no deviates are estimated (all are NA).
-\item map_log_rec_dev: A vector of length OM@nyears that indexes which recruitment deviates are fixed (using NA) or estimated (a separate integer).
-By default, all deviates are estimated.
-\item plusgroup: Logical for whether the maximum age is a plusgroup or not. By default, TRUE.
-\item fix_dome: Logical for whether the dome selectivity parameter for fleets is fixed. Used primarily for backwards compatibility, this is overridden by map_vul_par.
-\item resample: Logical, whether the OM conditioning parameters (recruitment, fishing mortality, SSB, selectivity, etc.) are obtained by sampling the Hessian matrix from
-a single model fit. By default FALSE. This feature requires identical biological parameters among simulations.
+\item log_rec_dev: A vector of length OM@nyears that indexes which recruitment deviates are fixed (using NA) or estimated (a separate integer).
+By default, all these deviates are estimated.
 }
 }
 
@@ -297,9 +319,9 @@ mat_ogive <- pcod$OM@cpars$Mat_age[1, , 1]
 out <- RCM(OM = pcod$OM, data = pcod$data, 
            condition = "catch", mean_fit = TRUE,
            selectivity = "free", s_selectivity = rep("SSB", ncol(pcod$data@Index)),
-           vul_par = matrix(mat_ogive, length(mat_ogive), 1),
-           map_vul_par = matrix(NA, length(mat_ogive), 1),
-           map_log_early_rec_dev = rep(1, pcod$OM@maxage),
+           start = list(vul_par = matrix(mat_ogive, length(mat_ogive), 1)),
+           map = list(vul_par = matrix(NA, length(mat_ogive), 1),
+                      log_early_rec_dev = rep(1, pcod$OM@maxage)),
            prior = pcod$prior)
 plot(out, s_name = colnames(pcod$data@Index))
 
@@ -310,9 +332,9 @@ out_age3 <- local({
   RCM(OM = pcod$OM, data = pcod$data, 
       condition = "catch", mean_fit = TRUE,
       selectivity = "free", s_selectivity = rep("SSB", ncol(pcod$data@Index)),
-      vul_par = matrix(mat_ogive_age3, length(mat_ogive_age3), 1),
-      map_vul_par = matrix(NA, length(mat_ogive_age3), 1),
-      map_log_early_rec_dev = rep(1, pcod$OM@maxage),
+      start = list(vul_par = matrix(mat_ogive_age3, length(mat_ogive_age3), 1)),
+      map = list(vul_par = matrix(NA, length(mat_ogive_age3), 1),   
+                 log_early_rec_dev = rep(1, pcod$OM@maxage)),
       prior = pcod$prior)
 })
   
@@ -324,7 +346,7 @@ Hist <- runMSE(out@OM, Hist = TRUE)
 
 }
 \references{
-Thorson et al. 2017. Model-based estimates of effective sample size in stock assessmentmodels using the Dirichlet-multinomial distribution.
+Thorson et al. 2017. Model-based estimates of effective sample size in stock assessment models using the Dirichlet-multinomial distribution.
 Fish. Res. 192:84-93. \doi{10.1016/j.fishres.2016.06.005}
 }
 \seealso{

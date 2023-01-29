@@ -46,6 +46,7 @@ Type SCA(objective_function<Type> *obj) {
   DATA_VECTOR(M_bounds);  // Bounds of M random walk or density dependent M
   DATA_IVECTOR(use_prior); // Boolean vector, whether to set a prior for R0, h, M, q (length of 3 + nsurvey)
   DATA_MATRIX(prior_dist); // Distribution of priors for R0, h, M, q (rows), columns indicate parameters of distribution calculated in R (see make_prior fn)
+  DATA_INTEGER(sim_process_error);
 
   PARAMETER(R0x);
   PARAMETER(transformed_h);
@@ -127,12 +128,22 @@ Type SCA(objective_function<Type> *obj) {
   vector<Type> U(n_y);
   vector<Type> R(n_y+1);            // Recruitment at year
   vector<Type> R_early(n_age-1);
+  vector<Type> Rec_dev(n_y);
+  vector<Type> Rec_dev_early(n_age-1);
   vector<Type> VB(n_y+1);           // Vulnerable biomass at year
   vector<Type> B(n_y+1);            // Total biomass at year
   vector<Type> E(n_y+1);            // Spawning biomass at year
   
   matrix<Type> M(n_y+1,n_age);
   vector<Type> logit_M(n_y+1);
+  
+  vector<Type> log_rec_dev_sim = log_rec_dev;
+  vector<Type> log_early_rec_dev_sim = log_early_rec_dev;
+  vector<Type> logit_M_walk_sim = logit_M_walk;
+  vector<Type> logit_M_sim(n_y+1);
+  
+  Rec_dev.fill(1);
+  Rec_dev_early.fill(1);
 
   N.setZero();
   CALpred.setZero();
@@ -141,6 +152,8 @@ Type SCA(objective_function<Type> *obj) {
   VB.setZero();
   B.setZero();
   E.setZero();
+  
+  logit_M_sim.setZero();
 
   // Equilibrium quantities (leading into first year of model)
   vector<Type> NPR_equilibrium(n_age);
@@ -166,14 +179,28 @@ Type SCA(objective_function<Type> *obj) {
     R_eq = R0;
   }
   R(0) = R_eq;
-  if(est_rec_dev(0)) R(0) *= exp(log_rec_dev(0) - 0.5 * tau * tau);
+  if(est_rec_dev(0)) {
+    Rec_dev(0) = exp(log_rec_dev(0) - 0.5 * tau * tau);
+    SIMULATE if(sim_process_error) {
+      log_rec_dev_sim(0) = rnorm(log_rec_dev(0), tau);
+      Rec_dev(0) = exp(log_rec_dev_sim(0) - 0.5 * tau * tau);
+    }
+    R(0) *= Rec_dev(0);
+  }
   
   for(int a=0;a<n_age;a++) {
     if(a == 0) {
       N(0,a) = R(0) * NPR_equilibrium(a);
     } else {
       R_early(a-1) = R_eq;
-      if(est_early_rec_dev(a-1)) R_early(a-1) *= exp(log_early_rec_dev(a-1) - 0.5 * tau * tau);
+      if(est_early_rec_dev(a-1)) {
+        Rec_dev_early(a-1) = exp(log_early_rec_dev(a-1) - 0.5 * tau * tau);
+        SIMULATE if(sim_process_error) {
+          log_early_rec_dev_sim(a-1) = rnorm(log_early_rec_dev(a-1), tau);
+          Rec_dev_early(a-1) = exp(log_early_rec_dev_sim(a-1) - 0.5 * tau * tau);
+        }
+        R_early(a-1) *= Rec_dev_early(a-1);
+      }
       N(0,a) = R_early(a-1) * NPR_equilibrium(a);
     }
     B(0) += N(0,a) * weight(a);
@@ -187,9 +214,13 @@ Type SCA(objective_function<Type> *obj) {
     Type M_y = CppAD::CondExpLe(B(0)/B0, Type(1), M_bounds(0) + (M_bounds(1) - M_bounds(0)) * (1 - B(0)/B0),
                                 M_bounds(0));
     M.row(0).fill(M_y);
-  } else {
+  } else { // For age-constant M (tv_M = "none" or "walk")
     M.row(0).fill(M0);
     logit_M(0) = logit2(M(0,0), M_bounds(0), M_bounds(1), M(0,0));
+    
+    SIMULATE {
+      logit_M_sim(0) = logit_M(0);
+    }
   }
   
   for(int a=0;a<n_age;a++) {
@@ -250,7 +281,18 @@ Type SCA(objective_function<Type> *obj) {
     } else {
       R(y+1) = R0;
     }
-    if(y<n_y-1 && est_rec_dev(y+1)) R(y+1) *= exp(log_rec_dev(y+1) - 0.5 * tau * tau);
+    if(y<n_y-1 && est_rec_dev(y+1)) {
+      Rec_dev(y+1) = exp(log_rec_dev(y+1) - 0.5 * tau * tau);
+      SIMULATE {
+        if(sim_process_error) {
+          log_rec_dev_sim(y+1) = rnorm(log_rec_dev(y+1), tau);
+          Rec_dev(y+1) = exp(log_rec_dev_sim(y+1) - 0.5 * tau * tau);
+        } else {
+          log_rec_dev_sim(y+1) = log_rec_dev(y+1);
+        }
+      }
+      R(y+1) *= Rec_dev(y+1);
+    }
     N(y+1,0) = R(y+1);
     for(int a=0;a<n_age;a++) B(y+1) += N(y+1,a) * weight(a);
     
@@ -261,9 +303,17 @@ Type SCA(objective_function<Type> *obj) {
       Type M_y = CppAD::CondExpLe(B(y+1), B0, M_bounds(0) + (M_bounds(1) - M_bounds(0)) * (1 - B(y+1)/B0),
                                   M_bounds(0));
       M.row(y+1).fill(M_y);
-    } else {
+    } else { // Age-constant M 
       logit_M(y+1) = logit_M(y) + logit_M_walk(y);
       M.row(y+1).fill(invlogit2(logit_M(y+1), M_bounds(0), M_bounds(1), M(0,0)));
+      
+      SIMULATE if(sim_process_error) {
+        if(tv_M == "walk") {
+          logit_M_walk_sim(y) = rnorm(logit_M_walk(y), tau_M);
+        }
+        logit_M_sim(y+1) = logit_M_sim(y) + logit_M_walk_sim(y);
+        M.row(y+1).fill(invlogit2(logit_M_sim(y+1), M_bounds(0), M_bounds(1), M(0,0)));
+      }
     }
     
     // Calculate next year's VB
@@ -310,6 +360,9 @@ Type SCA(objective_function<Type> *obj) {
     for(int sur=0;sur<nsurvey;sur++) {
       if(LWT(sur) > 0 && !R_IsNA(asDouble(I_hist(y,sur))) && I_hist(y,sur) > 0) {
         nll_comp(sur) -= LWT(sur) * dnorm(log(I_hist(y,sur)), log(Ipred(y,sur)), I_sd(y,sur), true);
+        SIMULATE {
+          I_hist(y,sur) = exp(rnorm(log(Ipred(y,sur)), I_sd(y,sur)));
+        }
       }
     }
     if(C_hist(y) > 0) {
@@ -337,7 +390,18 @@ Type SCA(objective_function<Type> *obj) {
           nll_comp(nsurvey+1) -= LWT(nsurvey+1) * dlnorm_comp(loglike_CALobs, loglike_CALpred);
         }
       }
-      if(catch_eq == "Baranov") nll_comp(nsurvey+2) -= LWT(nsurvey+2) * dnorm(log(C_hist(y)), log(Cpred(y)), omega, true);
+      
+      if(catch_eq == "Baranov") {
+        nll_comp(nsurvey+2) -= LWT(nsurvey+2) * dnorm(log(C_hist(y)), log(Cpred(y)), omega, true);
+        SIMULATE {
+          C_hist(y) = exp(rnorm(log(Cpred(y)), omega));
+        }
+      } else {
+        SIMULATE {
+          C_hist(y) = Cpred(y);
+        }
+      }
+      
     }
     if(est_rec_dev(y)) nll_comp(nsurvey+3) -= dnorm(log_rec_dev(y), Type(0), tau, true);
     if(tv_M == "walk") nll_comp(nsurvey+4) -= dnorm(logit_M_walk(y), Type(0), tau_M, true);
@@ -415,6 +479,17 @@ Type SCA(objective_function<Type> *obj) {
   REPORT(nll);
   REPORT(penalty);
   REPORT(prior);
+  
+  SIMULATE {
+    REPORT(C_hist);
+    REPORT(I_hist);
+    
+    REPORT(log_rec_dev_sim);
+    REPORT(log_early_rec_dev_sim);
+    // Only updated if tv_M = "walk"
+    REPORT(logit_M_walk_sim);
+    REPORT(logit_M_sim);
+  }
 
   return nll;
 }

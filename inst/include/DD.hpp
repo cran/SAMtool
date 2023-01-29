@@ -31,6 +31,7 @@ Type DD(objective_function<Type> *obj) {
   DATA_INTEGER(state_space);
   DATA_IVECTOR(use_prior); // Boolean vector, whether to set a prior for R0, h, M, q (length of 3 + nsurvey)
   DATA_MATRIX(prior_dist); // Distribution of priors for R0, h, M, q (rows), columns indicate parameters of distribution calculated in R (see make_prior fn)
+  DATA_INTEGER(sim_process_error);
 
   PARAMETER(R0x);
   PARAMETER(transformed_h);
@@ -91,6 +92,8 @@ Type DD(objective_function<Type> *obj) {
   vector<Type> MWpred(ny);
   //vector<Type> Sp(ny);
   vector<Type> F(ny);
+  
+  vector<Type> log_rec_dev_sim = log_rec_dev;
 
   //--INITIALIZE
   Type Seq = S0 * exp(-F_equilibrium);
@@ -108,7 +111,13 @@ Type DD(objective_function<Type> *obj) {
   for(int tt=0;tt<k;tt++) R(tt) = Req;
   if(state_space) {
     Rec_dev(0) = exp(log_rec_dev(0) - 0.5 * tau * tau);
+    SIMULATE if(sim_process_error) { 
+      log_rec_dev_sim(0) = rnorm(log_rec_dev(0), tau);
+      Rec_dev(0) = exp(log_rec_dev_sim(0) - 0.5 * tau * tau);
+    }
     R(0) *= Rec_dev(0);
+  } else {
+    Rec_dev.fill(1);
   }
   
   Type Ceqpred = F_equilibrium * B(0) * (1 - Seq)/(F_equilibrium + M);
@@ -141,7 +150,15 @@ Type DD(objective_function<Type> *obj) {
     }
     if(state_space && tt<ny-1) {
       Rec_dev(tt+1) = exp(log_rec_dev(tt+1) - 0.5 * tau * tau);
+      SIMULATE if(sim_process_error) {
+        log_rec_dev_sim(tt+1) = rnorm(log_rec_dev(tt+1), tau);
+        Rec_dev(tt+1) = exp(log_rec_dev_sim(tt+1) - 0.5 * tau * tau);
+      }
       R(tt+1) *= Rec_dev(tt+1);
+    }
+    
+    SIMULATE {
+      C_hist(tt) = Cpred(tt);
     }
 
     B(tt+1) = Surv(tt) * (Alpha * N(tt) + Rho * B(tt)) + wk * R(tt+1);
@@ -164,8 +181,14 @@ Type DD(objective_function<Type> *obj) {
           if(LWT(sur) > 0 && !R_IsNA(asDouble(I_hist(tt,sur)))) {
             if(fix_sigma) {
               nll_comp(sur) -= dnorm_(log(I_hist(tt,sur)), log(Ipred(tt,sur)), I_sd(tt,sur), true);
+              SIMULATE {
+                I_hist(tt,sur) = exp(rnorm(log(Ipred(tt,sur)), I_sd(tt,sur)));
+              }
             } else {
               nll_comp(sur) -= dnorm(log(I_hist(tt,sur)), log(Ipred(tt,sur)), sigma, true);
+              SIMULATE {
+                I_hist(tt,sur) = exp(rnorm(log(Ipred(tt,sur)), sigma));
+              }
             }
           }
         }
@@ -174,6 +197,9 @@ Type DD(objective_function<Type> *obj) {
     }
     if(LWT(nsurvey) > 0 && !R_IsNA(asDouble(MW_hist(tt)))) {
       nll_comp(nsurvey) -= LWT(nsurvey) * dnorm(log(MW_hist(tt)), log(MWpred(tt)), sigma_W, true);
+      SIMULATE {
+        MW_hist(tt) = exp(rnorm(log(MWpred(tt)), sigma_W));
+      }
     }
     if(state_space) nll_comp(nsurvey+1) -= dnorm(log_rec_dev(tt), Type(0), tau, true);
   }
@@ -223,6 +249,13 @@ Type DD(objective_function<Type> *obj) {
   REPORT(B0);
   REPORT(penalty);
   REPORT(prior);
+  
+  SIMULATE {
+    REPORT(C_hist);
+    REPORT(I_hist);
+    REPORT(MW_hist);
+    REPORT(log_rec_dev_sim);
+  }
 
   return nll;
 }

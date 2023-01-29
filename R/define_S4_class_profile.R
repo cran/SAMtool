@@ -31,12 +31,12 @@ prof <- setClass("prof", slots = c(Model = "character", Name = "character", Par 
 setMethod("plot", signature(x = "prof", y = "missing"),
           function(x, contour_levels = 20, ...) {
             joint_profile <- length(x@MLE) == 2
-            if(joint_profile && !requireNamespace("reshape2", quietly = TRUE)) {
+            if (joint_profile && !requireNamespace("reshape2", quietly = TRUE)) {
               stop("Please install the reshape2 package.", call. = FALSE)
             }
             
-            if(x@Model == "RCM" && length(x@Par) == 1) {
-              if(!requireNamespace("ggplot2", quietly = TRUE)) {
+            if (x@Model == "RCM" && length(x@Par) == 1) {
+              if (!requireNamespace("ggplot2", quietly = TRUE)) {
                 stop("Please install the ggplot2 package.", call. = FALSE)
               }
               g <- parse(text = paste0('reshape2::melt(x@grid, id.vars = x@Par) %>% 
@@ -49,7 +49,7 @@ setMethod("plot", signature(x = "prof", y = "missing"),
                 labs(y = "Change in neg. log-likelihood")')) %>% eval()
               return(g)
                 
-            } else if(joint_profile) {
+            } else if (joint_profile) {
               z.mat <- reshape2::acast(x@grid, as.list(x@Par), value.var = "nll")
               x.mat <- as.numeric(dimnames(z.mat)[[1]])
               y.mat <- as.numeric(dimnames(z.mat)[[2]])
@@ -57,7 +57,7 @@ setMethod("plot", signature(x = "prof", y = "missing"),
                       xlab = x@Par[1], ylab = x@Par[2], nlevels = contour_levels)
               points(x@MLE[1], x@MLE[2], col = "red", cex = 1.5, pch = 16)
 
-              if(x@MLE[1] >= min(x.mat) && x@MLE[1] <= max(x.mat) && x@MLE[2] >= min(y.mat) && x@MLE[2] <= max(y.mat)) {
+              if (x@MLE[1] >= min(x.mat) && x@MLE[1] <= max(x.mat) && x@MLE[2] >= min(y.mat) && x@MLE[2] <= max(y.mat)) {
                 sub <- "Red point indicates model estimate."
               } else sub <- NULL
               title("Contour plot of joint likelihood profile", sub = sub)
@@ -72,7 +72,7 @@ setMethod("plot", signature(x = "prof", y = "missing"),
               points(x.plot, y.plot, pch = 16)
               abline(v = x@MLE, lty = 2)
 
-              if(x@MLE >= min(x.plot) && x@MLE <= max(x.plot)) {
+              if (x@MLE >= min(x.plot) && x@MLE <= max(x.plot)) {
                 sub <- "Dotted line indicates model estimate."
               } else sub <- NULL
               title(paste("Likelihood profile of", profile_par), sub = sub)
@@ -80,13 +80,10 @@ setMethod("plot", signature(x = "prof", y = "missing"),
             invisible()
           })
 
-#' @rdname profile
-#' @export
-setGeneric("profile", function(fitted, ...) standardGeneric("profile"))
 
-#' @name profile
+#' @rdname profile
 #' @title Profile likelihood of assessment models
-#' @aliases profile,Assessment-method
+#' @aliases profile profile,Assessment-method
 #' @description Profile the likelihood for parameters of assessment models.
 #'
 #' @param fitted,Assessment An object of class \linkS4class{Assessment}.
@@ -106,7 +103,8 @@ setGeneric("profile", function(fitted, ...) standardGeneric("profile"))
 #' \item SSS: \code{R0}
 #' }
 #' 
-#' For RCM: \code{D} (spawning biomass depletion), \code{R0}, and \code{h} are used.
+#' For RCM: \code{D} (spawning biomass depletion), \code{R0}, and \code{h} are used. If the Mesnil-Rochet stock-recruit function
+#' is used, can also profile \code{MRRmax} and \code{MRgamma}.
 #' @author Q. Huynh
 #' @return An object of class \linkS4class{prof} that contains a data frame of negative log-likelihood values from the profile and, optionally,
 #' a figure of the likelihood surface.
@@ -127,11 +125,12 @@ setGeneric("profile", function(fitted, ...) standardGeneric("profile"))
 setMethod("profile", signature(fitted = "Assessment"),
           function(fitted, figure = TRUE, ...) {
             dots <- list(...)
-            if(!length(dots)) stop("No parameters for profile was found. See help.")
+            if (!length(dots)) stop("No parameters for profile was found. See help.")
+            dots[["Assessment"]] <- fitted
 
-            f <- get(paste0('profile_likelihood_', fitted@Model))
-            res <- f(fitted, ...)
-            if(figure) plot(res)
+            func <- get(paste0('profile_likelihood_', fitted@Model))
+            res <- do.call2(func, dots)
+            if (figure) plot(res)
             return(res)
           })
 
@@ -140,10 +139,11 @@ setMethod("profile", signature(fitted = "Assessment"),
 setMethod("profile", signature(fitted = "RCModel"),
           function(fitted, figure = TRUE, ...) {
             dots <- list(...)
-            if(!length(dots)) stop("No parameters for profile was found. See help.")
+            if (!length(dots)) stop("No parameters for profile was found. See help.")
+            dots[["Assessment"]] <- fitted
             
             res <- profile_likelihood_RCM(fitted, ...)
-            if(figure) plot(res)
+            if (figure) plot(res)
             return(res)
           })
 
