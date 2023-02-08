@@ -387,23 +387,33 @@ rmd_RCM_SPR <- function() {
 rmd_RCM_SPR2 <- function() {
   c("```{r, fig.cap = \"Annual spawning potential ratio (SPR). Equilibrium SPR is calculated from the F-at-age in the corresponding year, while dynamic SPR is calculated from the cumulative survival of cohorts.\"}",
     "plot(Year, report$SPR_eq, typ = \"o\", lty = 3, ylim = c(0, 1), xlab = \"Year\", ylab = \"Spawning potential ratio\")",
+    "abline(h = 0, col = \"grey\")",
     "lines(Year, report$SPR_dyn, typ = \"o\", pch = 16)",
     "legend(\"bottomleft\", c(\"Equilibrium SPR\", \"Dynamic SPR\"), lty = c(3, 1), pch = c(1, 16))",
-    "abline(h = 0, col = \"grey\")",
     "```\n")
 }
 
 
 rmd_RCM_SR <- function() {
-  c("```{r, fig.cap = \"Stock-recruit relationship and estimated recruitment.\"}",
+  c("```{r, fig.cap = \"Stock-recruit relationship and estimated recruitment. The red point indicates unfished values.\"}",
     "if (!is.null(report$Rec_dev)) {",
     "  expectedR <- report$R/c(report$Rec_dev, 1)",
-    "} else if (OM@SRrel == 1) {",
-    "  expectedR <- report$Arec * report$E / (1 + report$Brec * report$E)",
-    "} else if (OM@SRrel == 2) {",
-    "  expectedR <- report$Arec * report$E * exp(-report$Brec * report$E)",
+    "} else if (OM@SRrel %in% c(1, 2)) {",
+    "  expectedR <- R_pred(report$E, report[[\"h\"]], report[[\"R0\"]], report$E0_SR, switch(OM@SRrel, \"1\" = \"BH\", \"2\" = \"Ricker\"))",
     "} else stop(\"Error in plotting recruitment\")",
+    "E_full <- seq(0, 1.1 * max(report$E, report$E0_SR), length.out = 100)",
+    "if (OM@SRrel %in% c(1, 2)) {",
+    "  expectedR_full <- R_pred(E_full, report[[\"h\"]], report[[\"R0\"]], report$E0_SR, switch(OM@SRrel, \"1\" = \"BH\", \"2\" = \"Ricker\"))",
+    "} else {",
+    "  expectedR_full <- R_pred(E_full, SR_type = \"Mesnil-Rochet\", Shinge = report$MRhinge, Rmax = report$MRRmax, gamma = report$MRgamma)",
+    "}",
     "plot_SR(report$E, expectedR, report$R0, report$E0_SR, report$R)",
+    "lines(E_full, expectedR_full, lty = 2)",
+    "```\n",
+    "",
+    "```{r, fig.cap = \"Stock-recruit relationship with trajectory.\"}",
+    "plot_SR(report$E, expectedR, report$R0, report$E0_SR, report$R %>% structure(names = Yearplusone), trajectory = TRUE)",
+    "lines(E_full, expectedR_full, lty = 2)",
     "```\n")
 }
 
@@ -422,8 +432,8 @@ rmd_RCM_retrospective <- function(render_args) {
 }
 
 rmd_RCM_Hist_compare <- function() {
-  c("## Updated OM {.tabset}\n",
-    "### OM historical period\n\n",
+  c("### RCM-OM comparison {.tabset}\n",
+    "#### OM historical period\n\n",
     "```{r, fig.cap = \"Apical F from the operating model.\"}",
     "Hist_F <- apply(Hist@AtAge$F.Mortality, c(1, 3), max, na.rm = TRUE)",
     "matplot(Year, t(Hist_F), typ = \"l\", col = scenario$col2, lty = scenario$lty, lwd = scenario$lwd, xlab = \"Year\", ylab = \"OM Apical F\", ylim = c(0, 1.1 * max(Hist_F)))",
@@ -473,7 +483,7 @@ rmd_RCM_Hist_compare <- function() {
     "if (!is.null(scenario$names)) legend(\"topleft\", scenario$names, col = scenario$col2, lty = scenario$lty, lwd = scenario$lwd)",
     "```\n",
     "",
-    "### OM/RCM Comparison\n\n",
+    "#### Comparison\n\n",
     "```{r, fig.cap = \"Apical F comparison between the OM and RCM.\"}",
     "matplot(Year, t(Hist_F), typ = \"o\", pch = 16, col = \"red\", xlab = \"Year\", ylab = \"Apical F\", ylim = c(0, 1.1 * max(c(Hist_F, OM@cpars$Find))))",
     "matlines(Year, t(OM@cpars$Find), col = \"black\")",
@@ -603,12 +613,15 @@ RCM_get_likelihoods <- function(x, LWT, f_name, s_name) {
     nll_fleet <- x$nll_fleet %>% t()
   }
   nll_fleet[is.na(nll_fleet)] <- 0
+  if (missing(f_name)) f_name <- paste("Fleet", 1:ncol(nll_fleet))
+  
   nll_fleet <- cbind(nll_fleet, rowSums(nll_fleet))
   nll_fleet <- rbind(nll_fleet, colSums(nll_fleet))
   colnames(nll_fleet) <- c(f_name, "Sum")
   rownames(nll_fleet) <- c("Catch", "Equilibrium Catch", "CAA", "CAL", "Mean Size", "Sum")
   
-  wt_fleet <- rbind(LWT$Chist, LWT$C_eq, LWT$CAA, LWT$CAL, LWT$MS) %>% structure(dimnames = list(rownames(nll_fleet)[1:5], f_name))
+  lwt_fleet <- rbind(LWT$Chist, LWT$C_eq, LWT$CAA, LWT$CAL, LWT$MS) %>% 
+    structure(dimnames = list(rownames(nll_fleet)[1:5], f_name))
   
   if (inherits(x$nll_index, "array")) {
     nll_index <- apply(x$nll_index, 2:3, sum) %>% t()
@@ -616,18 +629,32 @@ RCM_get_likelihoods <- function(x, LWT, f_name, s_name) {
     nll_index <- x$nll_index %>% t()
   }
   nll_index[is.na(nll_index)] <- 0
+  if (missing(s_name)) s_name <- paste("Index", 1:ncol(nll_index))
+  
   nll_index <- cbind(nll_index, rowSums(nll_index))
   nll_index <- rbind(nll_index, colSums(nll_index))
   colnames(nll_index) <- c(s_name, "Sum")
   rownames(nll_index) <- c("Index", "IAA", "IAL", "Sum")
   
-  wt_index <- rbind(LWT$Index, LWT$IAA, LWT$IAL) %>% structure(dimnames = list(rownames(nll_index)[1:3], s_name))
+  lwt_index <- rbind(LWT$Index, LWT$IAA, LWT$IAL) %>% 
+    structure(dimnames = list(rownames(nll_index)[1:3], s_name))
   
-  tot <- c(x$nll, x$nll_log_rec_dev, nll_fleet[6, length(f_name) + 1], nll_index[4, length(s_name) + 1], x$penalty, x$prior) %>% matrix(ncol = 1)
-  dimnames(tot) <- list(c("Total", "Recruitment Deviations", "Fleets", "Indices", "Penalty (High F)", "Priors"), 
-                        "Negative log-likelihood")
+  tot <- c(
+    x$nll, 
+    x$nll_log_rec_dev, 
+    nll_fleet["Sum", "Sum"], 
+    nll_index["Sum", "Sum"], 
+    x$penalty, 
+    x$prior
+  ) %>% 
+    matrix(ncol = 1) %>%
+    structure(dimnames = list(c("Total", "Recruitment Deviations", "Fleets", "Indices", "Penalty (High F)", "Priors"),
+                              "Negative log-likelihood"))
   
-  res <- list(tot, nll_fleet, wt_fleet, nll_index, wt_index) %>% lapply(FUN = function(xx) xx %>% round(2) %>% as.data.frame())
+  res <- list(tot = tot, 
+              nll_fleet = nll_fleet, lwt_fleet = lwt_fleet,
+              nll_index = nll_index, lwt_index = lwt_index) %>% 
+    lapply(FUN = function(y) round(y, 2) %>% as.data.frame())
   return(res)
 }
 
