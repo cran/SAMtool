@@ -348,6 +348,11 @@ setMethod("RCM", signature(OM = "OM", data = "Data"),
             condition <- match.arg(condition)
             extra_args <- list(...)
             if (length(ESS) == 1) ESS <- rep(ESS, 2)
+            
+            ####### Check maxage from Data and OM
+            if (!is.na(data@MaxAge) && OM@maxage != data@MaxAge) {
+              warning("Data@MaxAge is not equal to OM@maxage")
+            }
 
             ####### Catch and ML from Data object
             vec_slot <- c("Cat", "ML", "CV_Cat")
@@ -426,8 +431,10 @@ setMethod("RCM", signature(OM = "OM", data = "Data"),
               Data_out <- output@OM@cpars$Data
               for(i in 1:length(Ind$slotname)) {
                 if (Ind$slotname[i] != "AddInd") {
-                  slot(Data_out, Ind$slotname[i]) <- Data_out@AddInd[, i, ]
-                  slot(Data_out, paste0("CV_", Ind$slotname[i])) <- Data_out@CV_AddInd[, i, ]
+                  slot(Data_out, Ind$slotname[i]) <- Data_out@AddInd[, i, ] %>% 
+                    matrix(1, length(Data_out@Year))
+                  slot(Data_out, paste0("CV_", Ind$slotname[i])) <- Data_out@CV_AddInd[, i, ] %>% 
+                    matrix(1, length(Data_out@Year))
                   
                   if (Ind$slotname[i] == "Ind") output@OM@cpars$I_beta <- rep(1, output@OM@nsim)
                   if (Ind$slotname[i] == "VInd") output@OM@cpars$VI_beta <- rep(1, output@OM@nsim)
