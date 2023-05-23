@@ -1,9 +1,9 @@
-ac88fab7d6e70e63b5346a2e635ae338 *DESCRIPTION
-ecedd7aef6072de93cdce5d688eac5a5 *NAMESPACE
-c0e5c01ba9d077b18f7f101038db9868 *NEWS.md
-92274cad70436c7deff93b549badc97a *R/Ancillary_Indicators.R
-67f3ef488fafdbc52905045fdabb517a *R/HCRs.R
-2a01b329c4d7d735c5afd9fb13ad1d59 *R/Misc_fun.R
+7fb70fac737860b89fdf7d24b45b4c9b *DESCRIPTION
+5b637b818a9d1df64674e5c31f0577a8 *NAMESPACE
+d8b66bfcd28db6d4b38abf647c0c7493 *NEWS.md
+84d95ed42bdedaf8ecefc7cbc78c0b3b *R/Ancillary_Indicators.R
+9aa72828b9d09f3deaf82030b609c883 *R/HCRs.R
+229f1d5eb44fa7650814808bf1498bee *R/Misc_fun.R
 78c6a9c18adbe877e465d56040b84d8e *R/RCM2MOM.R
 0a897c6fa61f2e4251b8445962d3f18a *R/RCM_assess.R
 9df52e62305f380a3672e31afd4d5a4e *R/RCM_data.R
@@ -12,7 +12,7 @@ be40c7a786c600e0d86b16aa99e93b84 *R/RCM_est.R
 2a9aa08f7ebff6478943accb3e04fd15 *R/RCM_rmd.R
 e880e573fa3d7e0ae32913641afba7a0 *R/SAMtool-package.R
 5c1ea53bed9836e723d4f9c82bd28241 *R/assess_DD.R
-cd4758ca7761d794e65fe5701e03b584 *R/assess_SCA.R
+db09b75d2c95f4c7382528b60306b684 *R/assess_SCA.R
 a31486c4d95186933a8d78730051f08f *R/assess_SCA_ext.R
 3916a1803d2aa500d1a3e4b21f342e73 *R/assess_SP.R
 16c372d032179622050af3998f70dcf6 *R/assess_SSS.R
@@ -29,7 +29,7 @@ fc8c4db8005b7dbc9ece045833eb0bbc *R/define_S4_generic_posterior.R
 1a5323d4758a6751aff19136bf213cb5 *R/define_S4_generic_simulate.R
 8e264c0bb9e4bc3a5a89f7713fa07d5a *R/diagnostic.R
 84748820ac8a5c2323222a97fa32155e *R/document_data.R
-92061406c6ae4bda7ec94f6abc85e63a *R/interim_MP.R
+211bbbfd2746c1fcd8e09bee46d23277 *R/interim_MP.R
 20ade1eff250810e566e8574da38f5f9 *R/report_DD_TMB.R
 c55db6dcbd428734258694fce49203ce *R/report_SCA.R
 815cb6ba8764cec92da1ce93b97f723f *R/report_SP.R
@@ -40,10 +40,10 @@ a31dabdce2d8de72d069b29c7fb8c5c0 *R/report_auxiliary.R
 68e2c2d4b7a9bfaf6fb759fe8a111cad *R/report_spict.R
 d3fb178350d401fcca68b8faecb2445f *R/retrospective_AM.R
 1c1de8f5935275094e1e0c11184b23f5 *R/rmd_report.R
-40c9c1b8555876c50110a8365acd917c *R/z_MPs.R
+9f6dc79ce61405a3e566aee24f1cfab2 *R/z_MPs.R
 6e4df15936c2847d502945fb67feca94 *R/zzz.R
 6cf019417ff5cd6e5fb7a45a474abdee *README.md
-cb4924f3573383fca290a0a8e2ca5294 *build/partial.rdb
+f01682ffd9d5582c0d3b8a226f3c2b16 *build/partial.rdb
 eb7c1691b6e8c9e1a6c270ec565a956d *data/pcod.rda
 bb1b13a174ffd95d912d08fe58df4f78 *data/swordfish.rda
 c81845d9cb1876d9d6db93e57ea9dccb *inst/include/DD.hpp
@@ -65,8 +65,8 @@ bbbfa157d0d4c1964cf44067b26c362c *inst/include/ns/ns_VPA.hpp
 6be55d26f2a5a549e07305a4bebc05ee *man/HCR_MSY.Rd
 ac6423d487d4b6caaced76dec1a5d718 *man/HCR_escapement.Rd
 2f9c18e80a7d7d43a20f731f9fca44af *man/HCR_fixedF.Rd
-412edcb03dab6f8dd13e0de74089739a *man/HCR_ramp.Rd
-6c4da6d53b0aac34060caaf729b7b2dc *man/HCR_segment.Rd
+4ee70cf56621e3aa45b01d949011587c *man/HCR_ramp.Rd
+c31ea7504ad0b945be275b94f21bca45 *man/HCR_segment.Rd
 deb4bfa7f63131574a169915c67beecf *man/HCRlin.Rd
 9fa14359e6aaf605600e1053b4ca1f7a *man/Model-based-MP.Rd
 838fd32db771ea5fbcfef6f2720acf28 *man/PRBcalc.Rd
@@ -93,7 +93,7 @@ a1a2969b099e8cabe5ad364f0af5c429 *man/compare_models.Rd
 f97caf6f39b959e728f030dbd0414338 *man/figures/logo.png
 c37f14ef7c528b468efae8201c1bf2b4 *man/getinds.Rd
 3e8e0200124659ebdf737b81d1a65069 *man/mahplot.Rd
-06ee23d8d6361d092119e04354582eca *man/make_MP.Rd
+c9e8fc672af9c2ef11dcad6840539d73 *man/make_MP.Rd
 576911732ce0326f36d71dca665e6bdc *man/pcod.Rd
 b8966cba16a4ae2324b6871df9b4f9f2 *man/plot.Assessment.Rd
 8354fb1143aa13f9e940adbc77fb9976 *man/plot.RCModel.Rd
@@ -102,7 +102,7 @@ b8966cba16a4ae2324b6871df9b4f9f2 *man/plot.Assessment.Rd
 2232fde44e077368299081084ec253a3 *man/plot_SR.Rd
 b5530965d77001625145eb5889de36fc *man/plot_betavar.Rd
 a71572feab1bab60f650437dee046603 *man/plot_composition.Rd
-4bc1401c7046e7f1a3769826e76916b8 *man/plot_crosscorr.Rd
+ca3ac5a54bd97ba6071c10b022224d96 *man/plot_crosscorr.Rd
 352fee8cf40f0207214c2e5037c7c967 *man/plot_lognormalvar.Rd
 5437df95df9b46d10a5f461aeca89f36 *man/plot_residuals.Rd
 06c1da01d4c059373ecff529f3b71657 *man/plot_steepness.Rd

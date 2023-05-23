@@ -5,7 +5,7 @@
 #' a harvest control rule (function of class \code{HCR}). The resulting function can then be tested in closed-loop simulation via 
 #' \code{\link[MSEtool]{runMSE}}. Use \code{make_MP} to specify constant TAC between assessments; the frequency of
 #' assessments is specified in \code{OM@@interval}. Use \code{make_projection_MP} to set catches according to a schedule set by projections,
-#' specify assessment frequency in argument \code{assessment_interval} adn ensure that \code{OM@@interval <- 1}. 
+#' specify assessment frequency in argument \code{assessment_interval} and ensure that \code{OM@@interval <- 1}. 
 #' Use \code{make_interim_MP} to use an interim procedure to adjust the TAC between 
 #' assessments using an index (Huynh et al. 2020), with the frequency of assessments specified in argument \code{assessment_interval} when 
 #' making the MP; ensure that \code{OM@@interval <- 1}.
@@ -54,20 +54,27 @@ make_MP <- function(.Assess, .HCR, diagnostic = c("min", "full", "none"), ...) {
     Assess_char <- as.character(.Assess)
   }
   if (is.character(.HCR)) {
+    HCR_char <- .HCR
     .HCR <- as.symbol(.HCR)
   } else {
     .HCR <- substitute(.HCR)
+    HCR_char <- as.character(.HCR)
   }
   if (!inherits(eval(.Assess), "Assess")) {
-    stop(paste(.Assess, "does not belong to class 'Assess'. Use: avail('Assess') to find eligible objects."))
+    stop(paste(.Assess, "does not belong to class 'Assess'. Use: avail(\"Assess\") to find eligible objects."))
   }
   if (!inherits(eval(.HCR), "HCR")) {
-    stop(paste(.HCR, "does not belong to class 'HCR.' Use: avail('HCR') to find eligible objects."))
+    stop(paste(.HCR, "does not belong to class 'HCR.' Use: avail(\"HCR\") to find eligible objects."))
   }
 
   dots <- list(...)
   dots_in_Assess <- dots[match(names(formals(eval(.Assess))), names(dots), nomatch = 0)]
   dots_in_HCR <- dots[match(names(formals(eval(.HCR))), names(dots), nomatch = 0)]
+  dots_lost <- dots[!names(dots) %in% c(names(formals(eval(.Assess))), names(formals(eval(.HCR))))]
+  
+  #if (length(dots_in_Assess)) message("Arguments passed to ", Assess_char, ": ", names(dots_in_Assess) %>% paste0(collapse = ","))
+  #if (length(dots_in_HCR)) message("Arguments passed to ", HCR_char, ": ", names(dots_in_HCR) %>% paste0(collapse = ","))
+  if (length(dots_lost)) warning("Unused arguments: ", names(dots_lost) %>% paste0(collapse = ", "))
 
   Assess_call <- as.call(c(.Assess, x = quote(x), Data = quote(Data), dots_in_Assess))
   HCR_call <- as.call(c(.HCR, Assessment = quote(do_Assessment), reps = quote(reps), dots_in_HCR))
