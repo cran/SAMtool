@@ -26,168 +26,239 @@ matrix<Type> generate_PLA(vector<Type> lbin, matrix<Type> len_age, matrix<Type> 
 }
 
 template<class Type>
-vector<Type> calc_NPR0(matrix<Type> M, int n_age, int y, int plusgroup) {
+vector<Type> calc_NPR0(matrix<Type> M, int n_age, int y, int plusgroup, Type spawn_time_frac = 0) {
   vector<Type> NPR(n_age);
+  vector<Type> out(n_age);
   NPR(0) = 1;
   for(int a=1;a<n_age;a++) NPR(a) = NPR(a-1) * exp(-M(y,a-1));
   if(plusgroup) NPR(n_age-1) /= 1 - exp(-M(y,n_age-1));
-  return NPR;
+  for(int a=0;a<n_age;a++) out(a) = NPR(a) * exp(-spawn_time_frac * M(y,a));
+  return out;
 }
 
 
 template<class Type>
-vector<Type> calc_NPR(vector<Type> F, array<Type> vul, int nfleet, matrix<Type> M, int n_age, int y, int plusgroup) {
+vector<Type> calc_NPR(vector<Type> F, array<Type> vul, int nfleet, matrix<Type> M, int n_age, int y, int plusgroup,
+                      Type spawn_time_frac = 0) {
   vector<Type> NPR(n_age);
   vector<Type> Z = M.row(y);
+  vector<Type> out(n_age);
   NPR(0) = 1;
   for(int a=0;a<n_age;a++) {
     for(int ff=0;ff<nfleet;ff++) Z(a) += vul(y,a,ff) * F(ff);
     if(a > 0) NPR(a) = NPR(a-1) * exp(-Z(a-1));
   }
   if(plusgroup) NPR(n_age-1) /= 1 - exp(-Z(n_age-1));
-  return NPR;
+  for(int a=0;a<n_age;a++) out(a) = NPR(a) * exp(-spawn_time_frac * Z(a));
+  return out;
 }
 
 template<class Type>
-Type sum_EPR(vector<Type> NPR, matrix<Type> wt, matrix<Type> mat, int n_age, int y) {
+Type sum_EPR(vector<Type> NPR, matrix<Type> fec, int n_age, int y) {
   Type EPR = 0.;
-  for(int a=0;a<n_age;a++) EPR += NPR(a) * wt(y,a) * mat(y,a);
+  for(int a=0;a<n_age;a++) EPR += NPR(a) * fec(y,a);
   return EPR;
 }
 
-template<class Type>
-Type sum_BPR(vector<Type> NPR, matrix<Type> wt, int n_age, int y) {
-  Type BPR = 0;
-  for(int a=0;a<n_age;a++) BPR += NPR(a) * wt(y,a);
-  return BPR;
-}
-
 
 template<class Type>
-array<Type> calc_vul(matrix<Type> vul_par, vector<int> vul_type, matrix<Type> Len_age, vector<Type> &LFS, vector<Type> &L5,
-                     vector<Type> &Vmaxlen, Type Linf, int nfleet, matrix<int> sel_block, int nsel_block, Type &prior,
-                     matrix<int> est_vul) {
-  array<Type> vul(Len_age.rows(), Len_age.cols(), nfleet);
+array<Type> calc_vul(matrix<Type> vul_par, vector<int> vul_type, vector<Type> lbinmid, int n_y, int n_age,
+                     vector<matrix<Type> > PLA, vector<Type> &LFS, vector<Type> &L5,
+                     vector<Type> &Vmaxlen, Type Linf, int nfleet, matrix<int> sel_block, int nsel_block, 
+                     matrix<Type> &vul_len, Type &prior, matrix<int> est_vul) {
+  
+  int nlbin = lbinmid.size();
+  array<Type> vul(n_y, n_age, nfleet); // Corresponding age based selectivity
   vul.setZero();
   vector<Type> sls(nsel_block);
   vector<Type> srs(nsel_block);
-
-  for(int b=0;b<nsel_block;b++) { // Parameters for sel_block
-    if(vul_type(b) <= 0 && vul_type(b) > -2) { // Logistic or dome
-      if(est_vul(0,b)) prior -= dnorm_(vul_par(0,b), Type(0), Type(3), true);
-      if(est_vul(1,b)) prior -= dnorm_(vul_par(1,b), Type(0), Type(3), true);
-
-      LFS(b) = invlogit(vul_par(0,b)) * 0.99 * Linf;
-      L5(b) = LFS(b) - exp(vul_par(1,b));
-      sls(b) = (LFS(b) - L5(b))/pow(-log2(0.05), 0.5);
-      if(vul_type(b) < 0) { // Logistic
-        Vmaxlen(b) = 1;
-      } else { // Dome
-        Vmaxlen(b) = invlogit(vul_par(2,b));
-        srs(b) = (Linf - LFS(b))/pow(-log2(Vmaxlen(b)), 0.5);
-        if(est_vul(2,b)) {
-          Type jac = Vmaxlen(b) - Vmaxlen(b) * Vmaxlen(b);
-          prior -= dbeta_(Vmaxlen(b), Type(1.01), Type(1.01), true) + log(jac);
-        }
-      }
-    } else if(vul_type(b) == -2) { // Free parameters - adding priors only
-      for(int a=0;a<Len_age.cols();a++) {
+  Type maxage = Type(n_age) - 1;
+  
+  for(int b=0;b<nsel_block;b++) { // Parameters for sel_block - don't do anything for age-specific index
+    if(vul_type(b) == -2) { // Free parameters - adding priors only
+      for(int a=0;a<n_age;a++) {
         if(est_vul(a,b)) {
           Type v = invlogit(vul_par(a,b));
           prior -= dbeta_(v, Type(1.01), Type(1.01), true) + log(v - v * v);
         }
       }
+    } else {
+      // Dome or logistic sel
+      if(est_vul(1,b)) prior -= dnorm_(vul_par(1,b), Type(0), Type(3), true);
+      
+      Type ilogit_x = invlogit(vul_par(0,b));
+      if(est_vul(0,b)) {
+        Type jac = ilogit_x - ilogit_x * ilogit_x;
+        prior -= dbeta_(ilogit_x, Type(1.01), Type(1.01), true) + log(jac);
+        //prior -= dnorm_(vul_par(0,b), Type(0), Type(3), true);
+      }
+      
+      if(vul_type(b) == 0 || vul_type(b) == - 1) {
+        LFS(b) = ilogit_x * Linf;
+      } else {
+        LFS(b) = ilogit_x * maxage;
+      }
+      L5(b) = LFS(b) - exp(vul_par(1,b));
+      sls(b) = (LFS(b) - L5(b))/pow(-log2(0.05), 0.5);
+      
+      if(vul_type(b) == -1 || vul_type(b) == -6) { // Logistic
+        Vmaxlen(b) = 1;
+      } else { // Dome
+        Vmaxlen(b) = invlogit(vul_par(2,b));
+        
+        if(vul_type(b) == 0) {
+          srs(b) = (Linf - LFS(b))/pow(-log2(Vmaxlen(b)), 0.5);
+        } else {
+          srs(b) = (maxage - LFS(b))/pow(-log2(Vmaxlen(b)), 0.5);
+        }
+        if(est_vul(2,b)) {
+          Type jac = Vmaxlen(b) - Vmaxlen(b) * Vmaxlen(b);
+          prior -= dbeta_(Vmaxlen(b), Type(1.01), Type(1.01), true) + log(jac);
+        }
+      }
+      
+      if(vul_type(b) == 0 || vul_type(b) == -1) { // Calculate length-based sel
+        for(int j=0;j<nlbin;j++) {
+          Type lo = pow(2, -((lbinmid(j) - LFS(b))/sls(b) * (lbinmid(j) - LFS(b))/sls(b)));
+          Type hi;
+          if(vul_type(b) == -1) {
+            hi = 1;
+          } else {
+            hi = pow(2, -((lbinmid(j) - LFS(b))/srs(b) * (lbinmid(j) - LFS(b))/srs(b)));
+          }
+          vul_len(j,b) = CppAD::CondExpLt(lbinmid(j), LFS(b), lo, hi);
+        }
+      }
     }
   }
-
+  
   for(int ff=0;ff<nfleet;ff++) { // Assign to fleet
-    for(int y=0;y<Len_age.rows();y++) {
+    for(int y=0;y<n_y;y++) {
       int vul_ind = sel_block(y,ff) - 1;
-
-      if(vul_type(vul_ind) <= 0 && vul_type(vul_ind) > -2) { // Logistic or dome
-        for(int a=0;a<Len_age.cols();a++) {
-          Type lo = pow(2, -((Len_age(y,a) - LFS(vul_ind))/sls(vul_ind) * (Len_age(y,a) - LFS(vul_ind))/sls(vul_ind)));
-          Type hi;
-
-          if(vul_type(vul_ind) < 0) { // Logistic
-            hi = 1;
-          } else { // Dome
-            hi = pow(2, -((Len_age(y,a) - LFS(vul_ind))/srs(vul_ind) * (Len_age(y,a) - LFS(vul_ind))/srs(vul_ind)));
-          }
-          vul(y,a,ff) = CppAD::CondExpLt(Len_age(y,a), LFS(vul_ind), lo, hi);
+      if(vul_type(vul_ind) == 0 || vul_type(vul_ind) == -1) { // Convert length sel to age sel
+        for(int a=0;a<n_age;a++) {
+          for(int j=0;j<nlbin;j++) vul(y,a,ff) += PLA(y)(a,j) * vul_len(j,vul_ind);
         }
-      } else if(vul_type(vul_ind) == -2) { // Free parameters
-        for(int a=0;a<Len_age.cols();a++) vul(y,a,ff) = invlogit(vul_par(a, vul_ind));
-      } else { // Age-specific index
-        vul(y,vul_type(vul_ind)-1,ff) = 1;
-      }
+      } else if(vul_type(vul_ind) == -5 || vul_type(vul_ind) == -6) {  // Dome or logistic, age
+        for(int a=0;a<n_age;a++) { // Calculate age-based sel
+          Type aa = Type(a);
+          Type lo = pow(2, -((aa - LFS(vul_ind))/sls(vul_ind) * (aa - LFS(vul_ind))/sls(vul_ind)));
+          Type hi;
+          if(vul_type(vul_ind) == -6) {
+            hi = 1;
+          } else {
+            hi = pow(2, -((aa - LFS(vul_ind))/srs(vul_ind) * (aa - LFS(vul_ind))/srs(vul_ind)));
+          }
+          vul(y,a,ff) = CppAD::CondExpLt(aa, LFS(vul_ind), lo, hi);
+        }
+      } else { //if(vul_type(vul_ind) == -2) { // Free parameters
+        for(int a=0;a<n_age;a++) vul(y,a,ff) = invlogit(vul_par(a, vul_ind));
+      } //else { // Age-specific index - superseded by free parameters long ago
+        //vul(y,vul_type(vul_ind)-1,ff) = 1;
+      //}
     }
   }
   return vul;
 }
 
-
-
 template<class Type>
-array<Type> calc_ivul(matrix<Type> vul_par, vector<int> vul_type, matrix<Type> Len_age, vector<Type> &LFS, vector<Type> &L5,
-                      vector<Type> &Vmaxlen, Type Linf, matrix<Type> mat, array<Type> fleet_var, Type &prior,
-                      matrix<int> est_vul) {
-  array<Type> vul(Len_age.rows(), Len_age.cols(), vul_type.size());
+array<Type> calc_ivul(matrix<Type> vul_par, vector<int> vul_type, vector<Type> lbinmid, int n_y, int n_age,
+                      vector<matrix<Type> > PLA, vector<Type> &LFS, vector<Type> &L5,
+                      vector<Type> &Vmaxlen, Type Linf, matrix<Type> mat, array<Type> fleet_var, 
+                      matrix<Type> &vul_len, Type &prior, matrix<int> est_vul) {
+  
+  int nlbin = lbinmid.size();
+  array<Type> vul(n_y, n_age, vul_type.size()); // Corresponding age based selectivity
   vul.setZero();
+  
+  vector<Type> sls(vul_type.size());
+  vector<Type> srs(vul_type.size());
+  Type maxage = Type(n_age) - 1;
 
   for(int ff=0;ff<vul_type.size();ff++) {
 
     if(vul_type(ff) == -4) { // B
-      for(int y=0;y<Len_age.rows();y++) {
-        for(int a=0;a<Len_age.cols();a++) vul(y,a,ff) = 1;
+      for(int y=0;y<n_y;y++) {
+        for(int a=0;a<n_age;a++) vul(y,a,ff) = 1;
       }
     } else if(vul_type(ff) == -3) { // SSB
-      for(int y=0;y<Len_age.rows();y++) {
-        for(int a=0;a<Len_age.cols();a++) vul(y,a,ff) = mat(y,a);
+      for(int y=0;y<n_y;y++) {
+        for(int a=0;a<n_age;a++) vul(y,a,ff) = mat(y,a);
       }
     } else if(vul_type(ff) == -2) { // free parameters
-      for(int a=0;a<Len_age.cols();a++) {
+      for(int a=0;a<n_age;a++) {
         Type v = invlogit(vul_par(a,ff));
-        if(est_vul(a,ff)) {
-          prior -= dbeta_(v, Type(1.01), Type(1.01), true) + log(v - v * v);
-        }
-        for(int y=0;y<Len_age.rows();y++) vul(y,a,ff) = v;
+        if(est_vul(a,ff)) prior -= dbeta_(v, Type(1.01), Type(1.01), true) + log(v - v * v);
+        for(int y=0;y<n_y;y++) vul(y,a,ff) = v;
       }
     } else if(vul_type(ff) > 0) { // Index mirrored to fleet
       vul.col(ff) = fleet_var.col(vul_type(ff) - 1);
-    } else { // Logistic or dome
-      if(est_vul(0,ff)) prior -= dnorm_(vul_par(0,ff), Type(0), Type(3), true);
+    } else { // Logistic or dome vul_type %in% c(0, -1, -5, -6)
       if(est_vul(1,ff)) prior -= dnorm_(vul_par(1,ff), Type(0), Type(3), true);
-
-      LFS(ff) = invlogit(vul_par(0,ff)) * 0.99 * Linf;
+      
+      Type ilogit_x = invlogit(vul_par(0,ff));
+      if(est_vul(0,ff)) {
+        Type jac = ilogit_x - ilogit_x * ilogit_x;
+        prior -= dbeta_(ilogit_x, Type(1.01), Type(1.01), true) + log(jac);
+        //prior -= dnorm_(vul_par(0,ff), Type(0), Type(3), true);
+      }
+      if (vul_type(ff) == 0 || vul_type(ff) == -1) {
+        LFS(ff) = ilogit_x * Linf;
+      } else {
+        LFS(ff) = ilogit_x * maxage;
+      }
       L5(ff) = LFS(ff) - exp(vul_par(1,ff));
-      Type sls = (LFS(ff) - L5(ff))/pow(-log2(0.05), 0.5);
-      if(vul_type(ff) == -1) { // Logistic
+      sls(ff) = (LFS(ff) - L5(ff))/pow(-log2(0.05), 0.5);
+      
+      if(vul_type(ff) == -1 || vul_type(ff) == -6) { // Logistic
         Vmaxlen(ff) = 1;
       } else { // Dome
         Vmaxlen(ff) = invlogit(vul_par(2,ff));
+        
+        if(vul_type(ff) == 0) {
+          srs(ff) = (Linf - LFS(ff))/pow(-log2(Vmaxlen(ff)), 0.5);
+        } else {
+          srs(ff) = (maxage - LFS(ff))/pow(-log2(Vmaxlen(ff)), 0.5);
+        }
         
         if(est_vul(2,ff)) {
           Type jac = Vmaxlen(ff) - Vmaxlen(ff) * Vmaxlen(ff);
           prior -= dbeta_(Vmaxlen(ff), Type(1.01), Type(1.01), true) + log(jac);
         }
       }
-
-      for(int y=0;y<Len_age.rows();y++) {
-        for(int a=0;a<Len_age.cols();a++) {
-          Type lo = pow(2, -((Len_age(y,a) - LFS(ff))/sls * (Len_age(y,a) - LFS(ff))/sls));
+      if (vul_type(ff) == 0 || vul_type(ff) == -1) { // Calculate length-based sel and convert to age
+        for(int j=0;j<nlbin;j++) {
+          Type lo = pow(2, -((lbinmid(j) - LFS(ff))/sls(ff) * (lbinmid(j) - LFS(ff))/sls(ff)));
           Type hi;
-
-          if(vul_type(ff) == -1) { // Logistic
+          if(vul_type(ff) == -1) {
             hi = 1;
-          } else { // Dome
-            Type srs = (Linf - LFS(ff))/pow(-log2(Vmaxlen(ff)), 0.5);
-            hi = pow(2, -((Len_age(y,a) - LFS(ff))/srs * (Len_age(y,a) - LFS(ff))/srs));
+          } else {
+            hi = pow(2, -((lbinmid(j) - LFS(ff))/srs(ff) * (lbinmid(j) - LFS(ff))/srs(ff)));
           }
-          vul(y,a,ff) = CppAD::CondExpLt(Len_age(y,a), LFS(ff), lo, hi);
+          vul_len(j,ff) = CppAD::CondExpLt(lbinmid(j), LFS(ff), lo, hi);
+          
+          for(int y=0;y<n_y;y++) {
+            for(int a=0;a<n_age;a++) {
+              vul(y,a,ff) += PLA(y)(a,j) * vul_len(j,ff);
+            }
+          }
+        }
+      } else { // Calculate age-based sel
+        for(int a=0;a<n_age;a++) {
+          Type aa = Type(a);
+          Type lo = pow(2, -((aa - LFS(ff))/sls(ff) * (aa - LFS(ff))/sls(ff)));
+          Type hi;
+          if(vul_type(ff) == -6) {
+            hi = 1;
+          } else {
+            hi = pow(2, -((aa - LFS(ff))/srs(ff) * (aa - LFS(ff))/srs(ff)));
+          }
+          Type vul_a = CppAD::CondExpLt(aa, LFS(ff), lo, hi);
+          for(int y=0;y<n_y;y++) vul(y,a,ff) = vul_a;
         }
       }
     }
+    
   }
   return vul;
 }

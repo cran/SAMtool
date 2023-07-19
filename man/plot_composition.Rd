@@ -8,15 +8,16 @@ plot_composition(
   Year = 1:nrow(obs),
   obs,
   fit = NULL,
-  plot_type = c("annual", "bubble_data", "bubble_residuals", "mean"),
+  plot_type = c("annual", "bubble_data", "bubble_residuals", "mean", "heat_residuals",
+    "hist_residuals"),
   N = rowSums(obs),
   CAL_bins = NULL,
   ages = NULL,
   ind = 1:nrow(obs),
   annual_ylab = "Frequency",
   annual_yscale = c("proportions", "raw"),
-  bubble_adj = 5,
-  bubble_color = c("black", "white"),
+  bubble_adj = 1.5,
+  bubble_color = c("#99999999", "white"),
   fit_linewidth = 3,
   fit_color = "red"
 )
@@ -32,7 +33,7 @@ years and age, respectively.}
 Same dimensions as obs.}
 
 \item{plot_type}{Indicates which plots to create. Options include annual distributions,
-bubble plot of the data, and bubble plot of the residuals, and annual means.}
+bubble plot of the data, and bubble plot of the Pearson residuals, and annual means.}
 
 \item{N}{Annual sample sizes. Vector of length \code{nrow(obs)}.}
 
@@ -58,15 +59,44 @@ and \code{fit}. Ignored for age data.}
 \item{fit_color}{Color of fitted line.}
 }
 \value{
-Plots depending on \code{plot_type}.
+Plots depending on \code{plot_type}. Invisibly returns a matrix or list of values that were plotted.
 }
 \description{
 Plots annual length or age composition data.
 }
 \examples{
 plot_composition(obs = SimulatedData@CAA[1, 1:16, ])
-plot_composition(obs = SimulatedData@CAA[1, , ], plot_type = "bubble_data", 
-                 ages = 0:SimulatedData@MaxAge)
+plot_composition(
+  obs = SimulatedData@CAA[1, , ], 
+  plot_type = "bubble_data", 
+  ages = 0:SimulatedData@MaxAge
+)
+                 
+SCA_fit <- SCA(x = 2, Data = SimulatedData)
+plot_composition(
+  obs = SimulatedData@CAA[1, , ], fit = SCA_fit@C_at_age,
+  plot_type = "mean", ages = 0:SimulatedData@MaxAge
+)
+
+plot_composition(
+  obs = SimulatedData@CAA[1, 1:16, ], fit = SCA_fit@C_at_age[1:16, ],
+  plot_type = "annual", ages = 0:SimulatedData@MaxAge
+)
+
+plot_composition(
+  obs = SimulatedData@CAA[1, , ], fit = SCA_fit@C_at_age,
+  plot_type = "bubble_residuals", ages = 0:SimulatedData@MaxAge
+)
+
+plot_composition(
+  obs = SimulatedData@CAA[1, , ], fit = SCA_fit@C_at_age,
+  plot_type = "heat_residuals", ages = 0:SimulatedData@MaxAge
+)
+
+plot_composition(
+  obs = SimulatedData@CAA[1, , ], fit = SCA_fit@C_at_age,
+  plot_type = "hist_residuals", ages = 0:SimulatedData@MaxAge
+)
 
 }
 \author{

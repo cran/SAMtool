@@ -115,13 +115,22 @@ pull_Index <- function(Data, maxage) {
 
 int_s_sel <- function(s_selectivity, nfleet, silent = FALSE) {
   if (is.null(s_selectivity)) return(-4)
+  
+  if (!silent) {
+    if (any(s_selectivity == "logistic")) message("Converting \"logistic\" index selectivity to \"logistic_length\"")
+    if (any(s_selectivity == "dome")) message("Converting \"dome\" index selectivity to \"dome_length\"")
+  }
+  s_selectivity[s_selectivity == "logistic"] <- "logistic_length"
+  s_selectivity[s_selectivity == "dome"] <- "dome_length"
 
   s_sel <- suppressWarnings(as.numeric(s_selectivity)) # Numbers match fleets, otherwise see next lines
   s_sel[s_selectivity == "B"] <- -4
   s_sel[s_selectivity == "SSB"] <- -3
   s_sel[s_selectivity == "free"] <- -2
-  s_sel[s_selectivity == "logistic"] <- -1
-  s_sel[s_selectivity == "dome"] <- 0
+  s_sel[s_selectivity == "logistic_length"] <- -1
+  s_sel[s_selectivity == "dome_length"] <- 0
+  s_sel[s_selectivity == "logistic_age"] <- -6
+  s_sel[s_selectivity == "dome_age"] <- -5
 
   if (any(s_sel > nfleet, na.rm = TRUE)) {
     stop(paste("There are undefined fishing fleets in s_selectivity (for indices). There are only", nfleet, "fleets."),
@@ -129,7 +138,8 @@ int_s_sel <- function(s_selectivity, nfleet, silent = FALSE) {
   }
 
   if (any(is.na(s_sel))) {
-    stop("Character entries for s_selectivity (for indices) must be either: \"B\", \"SSB\", \"logistic\", \"dome\", or \"free\"", call. = FALSE)
+    stop("Character entries for s_selectivity (for indices) must be either: \"B\", \"SSB\", \"logistic_length\", \"logistic_age\", 
+         \"dome_length\", \"dome_age\", or \"free\"", call. = FALSE)
   }
   
   if (!silent) {
@@ -140,11 +150,13 @@ int_s_sel <- function(s_selectivity, nfleet, silent = FALSE) {
         sout <- paste("fishery fleet", s_sel[sur])
       } else {
         sout <- switch(s_sel[sur] %>% as.character(),
+                       "-6" = "logistic function (age)",
+                       "-5" = "dome function (age)",
                        "-4" = "total biomass",
                        "-3" = "spawning biomass",
                        "-2" = "individual parameters at age (free)",
-                       "-1" = "logistic function",
-                       "0" = "dome function")
+                       "-1" = "logistic function (length)",
+                       "0" = "dome function (length)")
       }
       message("Index ", sur, ": ", sout, ifelse(sur == nsurvey, "\n\n", ""))
     }
@@ -155,13 +167,30 @@ int_s_sel <- function(s_selectivity, nfleet, silent = FALSE) {
 
 
 int_sel <- function(selectivity, RCMdata, silent = FALSE) {
+  
+  if (!silent) {
+    if (any(selectivity == "logistic")) message("Converting \"logistic\" fishery selectivity to \"logistic_length\"")
+    if (any(selectivity == "dome")) message("Converting \"dome\" fishery selectivity to \"dome_length\"")
+  }
+  selectivity[selectivity == "logistic"] <- "logistic_length"
+  selectivity[selectivity == "dome"] <- "dome_length"
+  
+  selectivity <- match.arg(
+    selectivity,
+    choices = c("logistic_length", "logistic_age", "dome_length", "dome_age", "free"),
+    several.ok = TRUE
+  )
+  
   sel <- suppressWarnings(as.numeric(selectivity))
   sel[selectivity == "free"] <- -2
-  sel[selectivity == "logistic"] <- -1
-  sel[selectivity == "dome"] <- 0
+  sel[selectivity == "logistic_length"] <- -1
+  sel[selectivity == "dome_length"] <- 0
+  sel[selectivity == "logistic_age"] <- -6
+  sel[selectivity == "dome_age"] <- -5
   
   if (any(is.na(sel))) {
-    stop("Character entries for selectivity (for fleets) must be either: \"logistic\", \"dome\", or \"free\"", call. = FALSE)
+    stop("Character entries for selectivity (for fleets) must be either: \"logistic_length\", \"logistic_age\", 
+         \"dome_length\", \"dome_age\" or \"free\"", call. = FALSE)
   }
   
   if (!silent && !missing(RCMdata)) {
@@ -170,9 +199,11 @@ int_sel <- function(selectivity, RCMdata, silent = FALSE) {
     no_blocks <- apply(RCMdata@sel_block, 2, function(x) length(unique(x)) == 1) %>% all()
     for(bb in 1:length(sel)) {
       fout <- switch(sel[bb] %>% as.character(),
+                     "-6" = "logistic function (age)",
+                     "-5" = "dome function (age)",
                      "-2" = "individual parameters at age (free)",
-                     "-1" = "logistic function",
-                     "0" = "dome function")
+                     "-1" = "logistic function (length)",
+                     "0" = "dome function (length)")
       if (no_blocks) {
         message("Fleet ", bb, ": ", fout, ifelse(bb == length(sel), "\n\n", ""))
       } else {
@@ -264,89 +295,122 @@ make_LWT <- function(LWT, nfleet, nsurvey) {
 #' @rdname RCM
 #' @param RCMdata An \linkS4class{RCMdata} object.
 #' @export
-check_RCMdata <- function(RCMdata, OM, condition = c("catch", "catch2", "effort"), silent = FALSE) {
+check_RCMdata <- function(RCMdata, OM, condition = "catch", silent = FALSE) {
 
   if (!silent) message("\nChecking OM and data...\n")
-  condition <- match.arg(condition)
+  condition <- match.arg(condition, choices = c("catch", "catch2", "effort"), several.ok = TRUE)
 
   # Preliminary OM check for basics
   if (!length(OM@nyears)) stop("OM@nyears is needed.", call. = FALSE)
   if (!length(OM@maxage)) stop("OM@maxage is needed.", call. = FALSE)
-
-  if (!length(RCMdata@Chist) && length(RCMdata@Ehist) && condition != "effort") {
-    if (!silent) message("No catch found. Only effort found. Switching condition = \"effort\".")
-    RCMdata@Misc$condition <- "effort"
-  }
-
-  if (condition == "catch" || condition == "catch2") {
-    if (!length(RCMdata@Chist)) {
-      stop("Full time series of catch is needed.", call. = FALSE)
+  
+  # Primarily dimension checking of catch and effort
+  if (any(grepl("catch", condition))) {
+    if (!length(RCMdata@Chist)) stop("RCM is conditioning on catch but there are no catch data.", call = FALSE)
+    
+    # Convert single fleet inputs to multiple fleet, e.g. matrices to arrays
+    if (!is.matrix(RCMdata@Chist)) RCMdata@Chist <- matrix(RCMdata@Chist, ncol = 1)
+    
+    RCMdata@Misc$nyears <- nrow(RCMdata@Chist)
+    RCMdata@Misc$nfleet <- ncol(RCMdata@Chist)
+    
+    if (RCMdata@Misc$nfleet > 1) {
+      if (length(condition) == 1) RCMdata@Misc$condition <- condition <- rep(condition, RCMdata@Misc$nfleet)
+      if (length(condition) != RCMdata@Misc$nfleet) stop("Length of condition vector should be equal to ", RCMdata@Misc$nfleet)
+    }
+    
+    if (all(grepl("catch", condition))) RCMdata@Ehist <- matrix(0, RCMdata@Misc$nyears, RCMdata@Misc$nfleet)
+    
+    if (!length(RCMdata@Index) && !length(RCMdata@CAA) && !length(RCMdata@CAL) && 
+        !length(RCMdata@MS) && !length(RCMdata@Ehist)) {
+      warning("No data other than Chist is provided. Model will switch to conditioning on equilibrium effort.")
+      RCMdata@Misc$condition <- rep("effort", RCMdata@Misc$nfleet)
+      RCMdata@Ehist <- matrix(1, RCMdata@Misc$nyears, RCMdata@Misc$nfleet)
+      RCMdata@E_eq <- rep(1, RCMdata@Misc$nfleet)
     } else {
-      if (any(is.na(RCMdata@Chist))) {
-        stop("One or more of the historical annual catch observations is missing. Suggestion: use linear interpolation to fill these data.", call. = FALSE)
-      }
-      if (any(RCMdata@Chist < 0)) {
-        stop("All catch values should be zero or greater.", call. = FALSE)
-      } else if (any(RCMdata@Chist == 0)) {
-        warning("Catch values of zero will be replaced with 1e-8.")
-        RCMdata@Chist[RCMdata@Chist == 0] <- 1e-8
-      }
-
-      # Convert single fleet inputs to multiple fleet, e.g. matrices to arrays
-      if (!is.matrix(RCMdata@Chist)) RCMdata@Chist <- matrix(RCMdata@Chist, ncol = 1)
-
-      RCMdata@Misc$nyears <- nrow(RCMdata@Chist)
-      RCMdata@Misc$nfleet <- ncol(RCMdata@Chist)
-      RCMdata@Ehist <- matrix(0, RCMdata@Misc$nyears, RCMdata@Misc$nfleet)
-
-      if (!length(RCMdata@Index) && !length(RCMdata@CAA) && !length(RCMdata@CAL) && 
-         !length(RCMdata@MS) && !length(RCMdata@Ehist)) {
-        warning("No data other than Chist is provided. Model will switch to conditioning on equilibrium effort.")
-        RCMdata@Misc$condition <- "effort"
-        RCMdata@Ehist <- matrix(1, RCMdata@Misc$nyears, RCMdata@Misc$nfleet)
-        RCMdata@E_eq <- rep(1, RCMdata@Misc$nfleet)
-      } else {
-        RCMdata@Misc$condition <- condition
-      }
+      RCMdata@Misc$condition <- condition
     }
   }
   
-  if (condition == "effort") {
-    RCMdata@Misc$condition <- "effort"
-    if (!length(RCMdata@Ehist)) {
-      stop("Full time series of effort is needed.")
-    } else {
-      if (any(is.na(RCMdata@Ehist))) stop("Effort time series is not complete (contains NA's)")
-      if (any(RCMdata@Ehist < 0)) stop("All effort values should be positive.")
-
-      if (!is.matrix(RCMdata@Ehist)) RCMdata@Ehist <- matrix(RCMdata@Ehist, ncol = 1)
-
+  if (any(condition == "effort")) {
+    if (!length(RCMdata@Ehist)) stop("RCM is conditioning on effort but there are no effort data.", call = FALSE)
+    
+    # Convert single fleet inputs to multiple fleet, e.g. matrices to arrays
+    if (!is.matrix(RCMdata@Ehist)) RCMdata@Ehist <- matrix(RCMdata@Ehist, ncol = 1)
+    
+    if (is.null(RCMdata@Misc$nyears)) {
       RCMdata@Misc$nyears <- nrow(RCMdata@Ehist)
+    } else if (nrow(RCMdata@Ehist) != RCMdata@Misc$nyears) {
+      stop("Different number of rows between RCMdata@Chist and RCMdata@Ehist.")
+    }
+    
+    if (is.null(RCMdata@Misc$nfleet)) {
       RCMdata@Misc$nfleet <- ncol(RCMdata@Ehist)
-
-      if (length(RCMdata@Chist) && !is.matrix(RCMdata@Chist)) RCMdata@Chist <- matrix(RCMdata@Chist, ncol = 1)
-      if (!length(RCMdata@Chist)) RCMdata@Chist <- matrix(0, RCMdata@Misc$nyears, RCMdata@Misc$nfleet)
+    } else if (ncol(RCMdata@Ehist) != RCMdata@Misc$nfleet) {
+      stop("Different number of columns between RCMdata@Chist and RCMdata@Ehist.")
+    }
+    
+    if (RCMdata@Misc$nfleet > 1) {
+      if (length(condition) == 1) RCMdata@Misc$condition <- condition <- rep(condition, RCMdata@Misc$nfleet)
+      if (length(condition) != RCMdata@Misc$nfleet) stop("Length of condition vector should be equal to ", RCMdata@Misc$nfleet)
+    }
+    
+    # Can condition on effort and fit to catch (provides scaling)
+    if (!length(RCMdata@Chist) && all(condition == "effort")) {
+      RCMdata@Chist <- matrix(0, RCMdata@Misc$nyears, RCMdata@Misc$nfleet)
+    }
+    if (!is.matrix(RCMdata@Chist)) {
+      RCMdata@Chist <- matrix(RCMdata@Chist, ncol = 1)
+    }
+    RCMdata@Misc$condition <- condition
+  }
+  
+  # Another round of checks for dimension
+  stopifnot(length(RCMdata@Misc$condition) == RCMdata@Misc$nfleet)
+  if (RCMdata@Misc$nyears != nrow(RCMdata@Chist)) stop("There should be ", RCMdata@Misc$nyears, "rows in RCMdata@Chist")
+  if (RCMdata@Misc$nyears != nrow(RCMdata@Ehist)) stop("There should be ", RCMdata@Misc$nyears, "rows in RCMdata@Ehist")
+  if (RCMdata@Misc$nfleet != ncol(RCMdata@Chist)) stop("There should be ", RCMdata@Misc$nfleet, "columns in RCMdata@Ehist")
+  if (RCMdata@Misc$nfleet != ncol(RCMdata@Ehist)) stop("There should be ", RCMdata@Misc$nfleet, "columns in RCMdata@Ehist")
+  
+  # Checks for positive catch/effort
+  if (any(RCMdata@Chist < 0, na.rm = TRUE)) stop("Catch values should be greater than zero.", call. = FALSE)
+  for(ff in 1:RCMdata@Misc$nfleet) {
+    if (condition[ff] == "effort") {
+      if (any(is.na(RCMdata@Ehist[, ff]))) {
+        stop("Missing values (NA's) in historical effort for fleet ", ff, ". Try linear interpolation to fill these data?", call. = FALSE)
+      }
+      if (any(RCMdata@Ehist[, ff] < 0, na.rm = TRUE)) stop("Effort values for fleet ", ff, " should be greater than zero.", call. = FALSE)
+    }
+    if (grepl("catch", condition[ff])) {
+      if (any(is.na(RCMdata@Chist[, ff]))) {
+        stop("Missing values (NA's) in historical catch for fleet ", ff, ". Try linear interpolation to fill these data?", call. = FALSE)
+      }
+      if (any(RCMdata@Chist[, ff] == 0)) {
+        warning("Catch values of zero for fleet ", ff, " will be replaced with 1e-8.")
+        RCMdata@Chist[RCMdata@Chist[, ff] == 0, ff] <- 1e-8
+      }
     }
   }
   
   RCMdata@Misc$CurrentYr <- OM@CurrentYr
   if (!silent) {
-    message("RCM is conditioned on: ", RCMdata@Misc$condition)
+    message(RCMdata@Misc$nfleet, " fleet(s) detected.")
+    message("RCM is conditioned on:")
+    message(paste0("Fleet ", 1:RCMdata@Misc$nfleet, ": ", RCMdata@Misc$condition, "\n"))
     message(RCMdata@Misc$nyears, " years of data detected.")
     message("First year in model: ", RCMdata@Misc$CurrentYr - RCMdata@Misc$nyears + 1)
     message("Last year in model: ", RCMdata@Misc$CurrentYr)
-    message(RCMdata@Misc$nfleet, " fleet(s) detected.")
   }
 
   # Match number of historical years of catch/effort to OM
   if (OM@nyears != RCMdata@Misc$nyears) {
     cpars_cond <- length(OM@cpars) && any(vapply(OM@cpars, function(x) inherits(x, "matrix") || inherits(x, "array"), logical(1)))
     if (cpars_cond) {
-      stmt <- paste0("OM@nyears != length(", ifelse(grepl("catch", RCMdata@Misc$condition), "Chist", "Ehist"), "). ",
+      stmt <- paste0("OM@nyears is not equal to ", RCMdata@Misc$nyears, ". ",
                      "There will be indexing errors in your custom parameters (OM@cpars).")
       stop(stmt, call. = FALSE)
     } else {
-      warning("OM@nyears was updated to length(", ifelse(grepl("catch", RCMdata@Misc$condition), "Chist", "Ehist"), "): ", RCMdata@Misc$nyears)
+      warning("OM@nyears was updated to ", RCMdata@Misc$nyears)
       OM@nyears <- RCMdata@Misc$nyears
     }
   }
@@ -448,7 +512,7 @@ check_RCMdata <- function(RCMdata, OM, condition = c("catch", "catch2", "effort"
   set.seed(OM@seed)
   suppressMessages({
     StockPars <- MSEtool::SampleStockPars(OM_samp, msg = FALSE)
-    ObsPars <- MSEtool::SampleObsPars(OM_samp)
+    ObsPars <- MSEtool::SampleObsPars(OM_samp, Stock = StockPars)
     FleetPars <- MSEtool::SampleFleetPars(OM_samp, msg = FALSE)
   })
 
@@ -510,7 +574,7 @@ check_RCMdata <- function(RCMdata, OM, condition = c("catch", "catch2", "effort"
 
   # Process equilibrium catch/effort - C_eq
   if (!length(RCMdata@C_eq)) RCMdata@C_eq <- rep(0, RCMdata@Misc$nfleet)
-  if (grepl("catch", RCMdata@Misc$condition)) {
+  if (any(grepl("catch", RCMdata@Misc$condition))) {
     if (length(RCMdata@C_eq) == 1) RCMdata@C_eq <- rep(RCMdata@C_eq, RCMdata@Misc$nfleet)
     if (length(RCMdata@C_eq) < RCMdata@Misc$nfleet) stop("C_eq needs to be of length nfleet (", RCMdata@Misc$nfleet, ").", call. = FALSE)
   }
@@ -522,16 +586,20 @@ check_RCMdata <- function(RCMdata, OM, condition = c("catch", "catch2", "effort"
   }
   if (length(RCMdata@C_eq_sd) != RCMdata@Misc$nfleet) stop("C_eq_sd needs to be of length nfleet (", RCMdata@Misc$nfleet, ").", call. = FALSE)
   
-  if (RCMdata@Misc$condition != "effort" && any(RCMdata@C_eq > 0)) {
-    if (!silent) message("Equilibrium catch was detected. The corresponding equilibrium F will be estimated.")
+  if (any(grepl("catch", RCMdata@Misc$condition)) && any(RCMdata@C_eq > 0)) {
+    if (!silent) {
+      message("Equilibrium catch was detected. The corresponding equilibrium F will be estimated for fleets: ", 
+              which(grepl("catch", RCMdata@Misc$condition)) %>% paste0(collapse = " "))
+    }
   }
 
   if (!length(RCMdata@E_eq)) RCMdata@E_eq <- rep(0, RCMdata@Misc$nfleet)
-  if (RCMdata@Misc$condition == "effort") {
+  if (any(RCMdata@Misc$condition == "effort")) {
     if (length(RCMdata@E_eq) == 1) RCMdata@E_eq <- rep(RCMdata@E_eq, RCMdata@Misc$nfleet)
     if (length(RCMdata@E_eq) < RCMdata@Misc$nfleet) stop("E_eq needs to be of length nfleet (", RCMdata@Misc$nfleet, ").", call. = FALSE)
     if (any(RCMdata@E_eq > 0)) {
-      if (!silent) message("Equilibrium effort was detected. The corresponding equilibrium F will be estimated.")
+      if (!silent) message("Equilibrium effort was detected. The corresponding equilibrium F will be estimated for fleets: ", 
+                           which(grepl("catch", RCMdata@Misc$condition)) %>% paste0(collapse = " "))
     }
   }
 
@@ -761,7 +829,7 @@ check_OM_for_sampling <- function(OM, RCMdata) {
   # R0 check
   R0_check <- length(OM@R0) > 0 || !is.null(cpars$R0)
   if (!R0_check) {
-    if (RCMdata@Misc$condition == "effort") {
+    if (all(RCMdata@Misc$condition == "effort") && all(!RCMdata@Chist)) {
       OM@R0 <- 1
     } else {
       OM@R0 <- 1e3

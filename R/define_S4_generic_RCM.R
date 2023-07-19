@@ -17,13 +17,13 @@
 #' @param data Data inputs formatted in a \linkS4class{RCMdata} (preferred) or \linkS4class{Data} object. 
 #' Use of a list is deprecated. See Data section below.
 #' @param condition String to indicate whether the RCM is conditioned on "catch" (where F are estimated parameters), "catch2" (where F is solved internally using Newton's method),
-#' or "effort".
-#' @param selectivity A character vector of length nfleet to indicate \code{"logistic"}, \code{"dome"}, or \code{"free"} selectivity for each fleet in \code{Chist}.
+#' or "effort" (F is proportional to an index series in \code{data@Ehist}. Can be fleet specific.
+#' @param selectivity A character vector of length nfleet to indicate \code{"logistic_length"}, \code{"dome_length"}, \code{"logistic_age"}, \code{"dome_age"}, or \code{"free"} selectivity for each fleet in \code{Chist}.
 #' If there is time-varying selectivity, this is a character vector of length nsel_block (see Data section below). "free" indicates independent selectivity parameters for each age,
 #' and additional modifications for fixing selectivity parameters will likely be needed. See Additional arguments section.
 #' @param s_selectivity A vector of length nsurvey to indicate the selectivity of the corresponding columns in \code{data$Index}. Use \code{"B"} for
 #' total biomass, or \code{"SSB"} for spawning biomass (by default, "B" is used). Use numbers if the survey selectivity follows a fleet (corresponding to the columns in data$Chist, e.g., 1 = first fleet/column and so on).
-#' If the survey selectivity is otherwise independent of anything else in the model, use \code{"logistic"}, \code{"dome"}, or \code{"free"} to specify the functional form of selectivity, and
+#' If the survey selectivity is otherwise independent of anything else in the model, use \code{"logistic_length"}, \code{"dome_length"}, \code{"logistic_age"}, \code{"dome_age"}, or \code{"free"} to specify the functional form of selectivity, and
 #' see Additional arguments section for setup of survey selectivity parameters and Articles section for more information.
 #' @param LWT A named list of likelihood weights for the RCM. See below.
 #' @param comp_like A string indicating the statistical distribution for the composition data, either \code{"multinomial"} (default), \code{"lognormal"}, \code{"mvlogistic"} (multivariate logistic),
@@ -154,7 +154,7 @@
 #'
 #' \itemize{
 #' \item plusgroup: Logical for whether the maximum age is a plusgroup or not. By default, TRUE.
-#' \item fix_dome: Logical for whether the dome selectivity parameter for fleets is fixed. Used primarily for backwards compatibility, this is overridden by map_vul_par.
+#' \item fix_dome: Logical for whether the dome selectivity parameter for fleets is fixed. Used primarily for backwards compatibility, this is overridden by the map argument.
 #' \item resample: Logical, whether the OM conditioning parameters (recruitment, fishing mortality, SSB, selectivity, etc.) are obtained by sampling the Hessian matrix from
 #' a single model fit. By default FALSE. This feature requires identical biological parameters among simulations.
 #' }
@@ -171,6 +171,7 @@
 #' the row specifies the selectivity at age. 
 #' \item log_rec_dev: A numeric vector of length nyears for the starting values of the log-recruitment deviations.
 #' \item log_early_rec_dev: A numeric vector of length OM@@maxage for the starting values of the recruitment deviations controlling the abundance-at-age in the first year of the model.
+#' \item q: A numeric vector of length nsurvey for index catchability.
 #' }
 #' 
 #' Parameters can be fixed with the map argument (also a named list, corresponding to the start list). Each
@@ -185,6 +186,8 @@
 #' By default, no deviates are estimated (all are NA).
 #' \item log_rec_dev: A vector of length OM@@nyears that indexes which recruitment deviates are fixed (using NA) or estimated (a separate integer).
 #' By default, all these deviates are estimated.
+#' \item q: A vector of length nsurvey for index catchability. q should be an estimated parameter when sharing across surveys (perhaps with differing selectivity). Otherwise, it is solved analytically
+#' where individual parameters are independent of other indices. Use \code{RCMdata@abs_I} for fixing the catchability to 1.
 #' }
 #' 
 #' @section Likelihood weights:
@@ -247,7 +250,7 @@ setGeneric("RCM", function(OM, data, ...) standardGeneric("RCM"))
 #' @rdname RCM
 #' @export
 setMethod("RCM", signature(OM = "OM", data = "RCMdata"),
-          function(OM, data, condition = c("catch", "catch2", "effort"), selectivity = "logistic", s_selectivity = NULL, LWT = list(),
+          function(OM, data, condition = "catch", selectivity = "logistic", s_selectivity = NULL, LWT = list(),
                    comp_like = c("multinomial", "lognormal", "mvlogistic", "dirmult1", "dirmult2"), prior = list(),
                    max_F = 3, cores = 1L, integrate = FALSE, mean_fit = FALSE, drop_nonconv = FALSE,
                    drop_highF = FALSE, control = list(iter.max = 2e+05, eval.max = 4e+05), 
@@ -260,7 +263,7 @@ setMethod("RCM", signature(OM = "OM", data = "RCMdata"),
 #' @rdname RCM
 #' @export
 setMethod("RCM", signature(OM = "OM", data = "list"),
-          function(OM, data, condition = c("catch", "catch2", "effort"), selectivity = "logistic", s_selectivity = NULL, LWT = list(),
+          function(OM, data, condition = "catch", selectivity = "logistic", s_selectivity = NULL, LWT = list(),
                    comp_like = c("multinomial", "lognormal", "mvlogistic", "dirmult1", "dirmult2"), ESS = c(30, 30), prior = list(),
                    max_F = 3, cores = 1L, integrate = FALSE, mean_fit = FALSE, drop_nonconv = FALSE,
                    drop_highF = FALSE, control = list(iter.max = 2e+05, eval.max = 4e+05),
@@ -339,13 +342,13 @@ setMethod("RCM", signature(OM = "OM", data = "list"),
 #' @rdname RCM
 #' @export
 setMethod("RCM", signature(OM = "OM", data = "Data"),
-          function(OM, data, condition = c("catch", "catch2", "effort"), selectivity = "logistic", s_selectivity = NULL, LWT = list(),
+          function(OM, data, condition = "catch", selectivity = "logistic", s_selectivity = NULL, LWT = list(),
                    comp_like = c("multinomial", "lognormal", "mvlogistic", "dirmult1", "dirmult2"), ESS = c(30, 30), prior = list(),
                    max_F = 3, cores = 1L, integrate = FALSE, mean_fit = FALSE, drop_nonconv = FALSE,
                    drop_highF = FALSE, control = list(iter.max = 2e+05, eval.max = 4e+05), 
                    start = list(), map = list(), silent = FALSE, ...) {
 
-            condition <- match.arg(condition)
+            condition <- match.arg(condition, choices = c("catch", "catch2", "effort"))
             extra_args <- list(...)
             if (length(ESS) == 1) ESS <- rep(ESS, 2)
             

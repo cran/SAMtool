@@ -8,19 +8,14 @@
 \alias{RCM,OM,RCMdata-method}
 \title{Rapid Conditioning Model (RCM)}
 \usage{
-check_RCMdata(
-  RCMdata,
-  OM,
-  condition = c("catch", "catch2", "effort"),
-  silent = FALSE
-)
+check_RCMdata(RCMdata, OM, condition = "catch", silent = FALSE)
 
 RCM(OM, data, ...)
 
 \S4method{RCM}{OM,RCMdata}(
   OM,
   data,
-  condition = c("catch", "catch2", "effort"),
+  condition = "catch",
   selectivity = "logistic",
   s_selectivity = NULL,
   LWT = list(),
@@ -42,7 +37,7 @@ RCM(OM, data, ...)
 \S4method{RCM}{OM,list}(
   OM,
   data,
-  condition = c("catch", "catch2", "effort"),
+  condition = "catch",
   selectivity = "logistic",
   s_selectivity = NULL,
   LWT = list(),
@@ -65,7 +60,7 @@ RCM(OM, data, ...)
 \S4method{RCM}{OM,Data}(
   OM,
   data,
-  condition = c("catch", "catch2", "effort"),
+  condition = "catch",
   selectivity = "logistic",
   s_selectivity = NULL,
   LWT = list(),
@@ -92,7 +87,7 @@ RCM(OM, data, ...)
 steepness, maturity parameters (L50 and L50_95), standard deviation of recruitment variability (Perr), as well as index uncertainty (Iobs).}
 
 \item{condition}{String to indicate whether the RCM is conditioned on "catch" (where F are estimated parameters), "catch2" (where F is solved internally using Newton's method),
-or "effort".}
+or "effort" (F is proportional to an index series in \code{data@Ehist}. Can be fleet specific.}
 
 \item{silent}{Logical to indicate whether informative messages will be reported to console.}
 
@@ -101,13 +96,13 @@ Use of a list is deprecated. See Data section below.}
 
 \item{...}{Other arguments to pass in for starting values of parameters and fixing parameters. See details.}
 
-\item{selectivity}{A character vector of length nfleet to indicate \code{"logistic"}, \code{"dome"}, or \code{"free"} selectivity for each fleet in \code{Chist}.
+\item{selectivity}{A character vector of length nfleet to indicate \code{"logistic_length"}, \code{"dome_length"}, \code{"logistic_age"}, \code{"dome_age"}, or \code{"free"} selectivity for each fleet in \code{Chist}.
 If there is time-varying selectivity, this is a character vector of length nsel_block (see Data section below). "free" indicates independent selectivity parameters for each age,
 and additional modifications for fixing selectivity parameters will likely be needed. See Additional arguments section.}
 
 \item{s_selectivity}{A vector of length nsurvey to indicate the selectivity of the corresponding columns in \code{data$Index}. Use \code{"B"} for
 total biomass, or \code{"SSB"} for spawning biomass (by default, "B" is used). Use numbers if the survey selectivity follows a fleet (corresponding to the columns in data$Chist, e.g., 1 = first fleet/column and so on).
-If the survey selectivity is otherwise independent of anything else in the model, use \code{"logistic"}, \code{"dome"}, or \code{"free"} to specify the functional form of selectivity, and
+If the survey selectivity is otherwise independent of anything else in the model, use \code{"logistic_length"}, \code{"dome_length"}, \code{"logistic_age"}, \code{"dome_age"}, or \code{"free"} to specify the functional form of selectivity, and
 see Additional arguments section for setup of survey selectivity parameters and Articles section for more information.}
 
 \item{LWT}{A named list of likelihood weights for the RCM. See below.}
@@ -266,7 +261,7 @@ For \code{RCM}, additional arguments can be passed to the model via \code{...}:
 
 \itemize{
 \item plusgroup: Logical for whether the maximum age is a plusgroup or not. By default, TRUE.
-\item fix_dome: Logical for whether the dome selectivity parameter for fleets is fixed. Used primarily for backwards compatibility, this is overridden by map_vul_par.
+\item fix_dome: Logical for whether the dome selectivity parameter for fleets is fixed. Used primarily for backwards compatibility, this is overridden by the map argument.
 \item resample: Logical, whether the OM conditioning parameters (recruitment, fishing mortality, SSB, selectivity, etc.) are obtained by sampling the Hessian matrix from
 a single model fit. By default FALSE. This feature requires identical biological parameters among simulations.
 }
@@ -286,6 +281,7 @@ If any \code{s_selectivity = "free"}, then this matrix needs to be of maxage+1 r
 the row specifies the selectivity at age. 
 \item log_rec_dev: A numeric vector of length nyears for the starting values of the log-recruitment deviations.
 \item log_early_rec_dev: A numeric vector of length OM@maxage for the starting values of the recruitment deviations controlling the abundance-at-age in the first year of the model.
+\item q: A numeric vector of length nsurvey for index catchability.
 }
 
 Parameters can be fixed with the map argument (also a named list, corresponding to the start list). Each
@@ -300,6 +296,8 @@ or survey, otherwise estimated. Unused cells in the vul_par matrix should be giv
 By default, no deviates are estimated (all are NA).
 \item log_rec_dev: A vector of length OM@nyears that indexes which recruitment deviates are fixed (using NA) or estimated (a separate integer).
 By default, all these deviates are estimated.
+\item q: A vector of length nsurvey for index catchability. q should be an estimated parameter when sharing across surveys (perhaps with differing selectivity). Otherwise, it is solved analytically
+where individual parameters are independent of other indices. Use \code{RCMdata@abs_I} for fixing the catchability to 1.
 }
 }
 
