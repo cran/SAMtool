@@ -21,7 +21,6 @@ RCM_int <- function(OM, RCMdata, condition = "catch", selectivity = "logistic", 
   RCMdata <- dat_update$RCMdata
   StockPars <- dat_update$StockPars
   FleetPars <- dat_update$FleetPars
-  ObsPars <- dat_update$ObsPars
   
   nsim <- OM@nsim
   proyears <- OM@proyears
@@ -71,7 +70,7 @@ RCM_int <- function(OM, RCMdata, condition = "catch", selectivity = "logistic", 
   prior <- make_prior(prior, nsurvey, OM@SRrel, dots, msg = !silent)
   
   # Test for identical sims
-  par_identical_sims <- par_identical_sims_fn(StockPars, FleetPars, ObsPars, RCMdata, dots)
+  par_identical_sims <- par_identical_sims_fn(StockPars, FleetPars, RCMdata, dots)
   
   # Fit model
   if (all(par_identical_sims)) { # All identical sims detected
@@ -80,7 +79,7 @@ RCM_int <- function(OM, RCMdata, condition = "catch", selectivity = "logistic", 
     
     mean_fit_output <- RCM_est(RCMdata = RCMdata, selectivity = sel, s_selectivity = s_sel,
                                LWT = RCMdata@Misc$LWT, comp_like = comp_like, prior = prior, 
-                               max_F = max_F, integrate = integrate, StockPars = StockPars, ObsPars = ObsPars,
+                               max_F = max_F, integrate = integrate, StockPars = StockPars,
                                FleetPars = FleetPars, mean_fit = TRUE, control = control,
                                start = start, map = map, dots = dots)
     
@@ -117,7 +116,7 @@ RCM_int <- function(OM, RCMdata, condition = "catch", selectivity = "logistic", 
     
     mod <- pblapply(1:nsim, RCM_est, RCMdata = RCMdata, selectivity = sel, s_selectivity = s_sel,
                     LWT = RCMdata@Misc$LWT, comp_like = comp_like, prior = prior, 
-                    max_F = max_F, integrate = integrate, StockPars = StockPars, ObsPars = ObsPars,
+                    max_F = max_F, integrate = integrate, StockPars = StockPars,
                     FleetPars = FleetPars, control = control, start = start, map = map, dots = dots,
                     cl = if (snowfall::sfIsRunning()) snowfall::sfGetCluster() else NULL)
     
@@ -125,7 +124,7 @@ RCM_int <- function(OM, RCMdata, condition = "catch", selectivity = "logistic", 
       if (!silent) message("Generating additional model fit from mean values of parameters in the operating model...\n")
       mean_fit_output <- RCM_est(RCMdata = RCMdata, selectivity = sel, s_selectivity = s_sel,
                                  LWT = RCMdata@Misc$LWT, comp_like = comp_like, prior = prior, 
-                                 max_F = max_F, integrate = integrate, StockPars = StockPars, ObsPars = ObsPars,
+                                 max_F = max_F, integrate = integrate, StockPars = StockPars,
                                  FleetPars = FleetPars, mean_fit = TRUE, control = control, 
                                  start = start, map = map, dots = dots)
       
@@ -422,7 +421,6 @@ RCM_update_OM <- function(OM, report, StockPars = NULL, obj_data, maxage, nyears
     OM@cpars$plusgroup <- 0L
     if (!silent) message("No plus group was used in RCM.")
   }
-  #if (!any(obj_data$I_sd > 0, na.rm = TRUE)) OM@cpars$Iobs <- ObsPars$Iobs
   if (!silent) message("Growth, maturity, natural mortality, and stock recruit parameters from RCM are set in OM@cpars.\n\n")
   
   return(list(OM = OM, RCM_val = RCM_val))
@@ -641,7 +639,7 @@ RCM_retro_subset <- function(yr, data, params, map) {
     mat_ind <- match(mat, names(data_out))
     data_out[mat_ind] <- lapply(data_out[mat_ind], function(x) x[1:yr, , drop = FALSE])
     
-    mat2 <- c("len_age", "wt", "mat", "sel_block")
+    mat2 <- c("len_age", "wt", "mat", "sel_block", "SD_LAA", "fec")
     mat_ind2 <- match(mat2, names(data_out))
     data_out[mat_ind2] <- lapply(data_out[mat_ind2], function(x) x[1:(yr+1), , drop = FALSE])
     
@@ -670,7 +668,13 @@ RCM_retro_subset <- function(yr, data, params, map) {
         data_out$yind_F <- as.integer(0.5 * yr)
         params_out$log_F_dev[data_out$yind_F + 1, ] <- params$log_F_dev[data$yind_F + 1, ]
       }
-      map$log_F_dev <- map$log_F_dev[1:yr, , drop = FALSE]
+      
+      if (!is.matrix(map$log_F_dev)) { # For newer versions of TMB (> 1.9.4 ?)
+        map$log_F_dev <- map$log_F_dev %>%
+          as.integer() %>%
+          matrix(data$n_y, data$nfleet)
+      } 
+      map$log_F_dev <- map$log_F_dev[1:yr, , drop = FALSE] %>% factor()
     }
     
     ## Update nsel block if needed
