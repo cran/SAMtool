@@ -283,18 +283,18 @@ plot_yield_SP <- function(data = NULL, report, fmsy, msy, xaxis = c("F", "Biomas
 #' @author Q. Huynh
 #' @references
 #' Fletcher, R. I. 1978. On the restructuring of the Pella-Tomlinson system. Fishery Bulletin 76:515:521.
-#' @note May be useful for parameterizing \code{n} in \link{SP} and \link{SP_SS}.
+#' @note May be useful for parameterizing `n` in [SP] and [SP_SS].
 #' @examples SP_production(0.5)
 #' @return The production function exponent n (numeric).
 #' @examples
 #' SP_production(0.5)
-#' @seealso \link{SP} \link{SP_SS}
+#' @seealso [SP] [SP_SS]
 #' @export SP_production
 SP_production <- function(depletion, figure = TRUE) {
 
   if (length(depletion) > 1) {
     depletion <- depletion[1]
-    message(paste("Function is not vectorized. Depletion value of", depletion, "is used."))
+    message_oops(paste("Function is not vectorized. Depletion value of", depletion, "is used."))
   }
   if (depletion <= 0 || depletion >= 1) stop(paste("Proposed depletion =", depletion, "but value must be between 0 and 1."))
 

@@ -40,17 +40,17 @@ Output is re-converted back to original units.}
 
 \item{prior}{A named list for the parameters of any priors to be added to the model. See details in \code{SCA_Pope}.}
 
-\item{silent}{Logical, passed to \code{\link[TMB]{MakeADFun}}, whether TMB
+\item{silent}{Logical, passed to \code{\link[TMB:MakeADFun]{TMB::MakeADFun()}}, whether TMB
 will print trace information during optimization. Used for diagnostics for model convergence.}
 
-\item{opt_hess}{Logical, whether the hessian function will be passed to \code{\link[stats]{nlminb}} during optimization
+\item{opt_hess}{Logical, whether the hessian function will be passed to \code{\link[stats:nlminb]{stats::nlminb()}} during optimization
 (this generally reduces the number of iterations to convergence, but is memory and time intensive and does not guarantee an increase
 in convergence rate).}
 
-\item{n_restart}{The number of restarts (calls to \code{\link[stats]{nlminb}}) in the optimization procedure, so long as the model
+\item{n_restart}{The number of restarts (calls to \code{\link[stats:nlminb]{stats::nlminb()}}) in the optimization procedure, so long as the model
 hasn't converged. The optimization continues from the parameters from the previous (re)start.}
 
-\item{control}{A named list of arguments for optimization to be passed to \code{\link[stats]{nlminb}}.}
+\item{control}{A named list of arguments for optimization to be passed to \code{\link[stats:nlminb]{stats::nlminb()}}.}
 
 \item{...}{Other arguments to be passed (not currently used).}
 }
@@ -59,12 +59,12 @@ An object of class \linkS4class{Assessment}.
 }
 \description{
 A simple age-structured model (\link{SCA_Pope}) fitted to a time series of catch going back to unfished conditions.
-Terminal depletion (ratio of current total biomass to unfished biomass) is by default fixed to 0.4. Selectivity is fixed 
-to the maturity ogive, although it can be overridden with the start argument. The sole parameter estimated is 
+Terminal depletion (ratio of current total biomass to unfished biomass) is by default fixed to 0.4. Selectivity is fixed
+to the maturity ogive, although it can be overridden with the start argument. The sole parameter estimated is
 R0 (unfished recruitment), with no process error.
 }
 \details{
-In SAMtool, SSS is an implementation of \link{SCA_Pope} with fixed final depletion 
+In SAMtool, SSS is an implementation of \link{SCA_Pope} with fixed final depletion
 (in terms of total biomass, not spawning biomass) assumption.
 }
 \examples{

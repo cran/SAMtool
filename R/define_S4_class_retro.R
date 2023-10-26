@@ -5,7 +5,7 @@
 #' @description Perform a retrospective analysis, successive removals of most recent years of data to evaluate resulting
 #' parameter estimates.
 #'
-#' @param x An S4 object of class \linkS4class{Assessment} or \linkS4class{RCModel}.
+#' @param x An S4 object of class [Assessment-class] or [RCModel-class].
 #' @param nyr The maximum number of years to remove for the retrospective analysis.
 #' @param figure Indicates whether plots will be drawn.
 #' @param ... More arguments.
@@ -57,9 +57,9 @@ setMethod("retrospective", signature(x = "RCModel"),
             return(res)
           })
 
-#' Class-\code{retro}
+#' Class-`retro`
 #'
-#' An S4 class that contains output from \link{retrospective}.
+#' An S4 class that contains output from [retrospective].
 #'
 #' @name retro-class
 #' @docType class
@@ -68,11 +68,11 @@ setMethod("retrospective", signature(x = "RCModel"),
 #' @slot Name Name of Data object.
 #' @slot TS_var Character vector of time series variables, e.g. recruitment, biomass, from the assessment.
 #' @slot TS An array of time series assessment output of dimension, indexed by: peel (the number of terminal years removed from the base assessment),
-#' years, and variables (corresponding to \code{TS_var}).
+#' years, and variables (corresponding to `TS_var`).
 #' @slot Est_var Character vector of estimated parameters, e.g. R0, steepness, in the assessment.
-#' @slot Est An array for estimated parameters of dimension, indexed by: peel, variables (corresponding to \code{Est_var}), and
+#' @slot Est An array for estimated parameters of dimension, indexed by: peel, variables (corresponding to `Est_var`), and
 #' value (length 2 for estimate and standard error).
-#' @seealso \link{plot.retro} \link{summary.retro} \link{plot.Assessment}
+#' @seealso [plot.retro] [summary.retro] [plot.Assessment]
 #' @author Q. Huynh
 #' @export retro
 #' @exportClass retro
@@ -91,8 +91,8 @@ setMethod("plot", signature(x = "Assessment", y = "retro"),
 #' @name plot.retro
 #' @title Methods for retro object
 #' @description plot and summary functions for retro object.
-#' @param object An object of class \linkS4class{retro}.
-#' @param x An object of class \linkS4class{retro}.
+#' @param object An object of class [retro-class].
+#' @param x An object of class [retro-class].
 #' @param color An optional character vector of colors for plotting.
 #' @author Q. Huynh
 #' @aliases plot.retro plot,retro,missing-method

@@ -1,24 +1,24 @@
 
-#' Class-\code{RCModel}
+#' Class-`RCModel`
 #'
-#' An S4 class for the output from \link{RCM}.
+#' An S4 class for the output from [RCM].
 #'
 #' @name RCModel-class
 #' @docType class
 #'
-#' @slot OM An updated operating model, class \linkS4class{OM}.
-#' @slot SSB A matrix of estimated spawning biomass with \code{OM@@nsim} rows and \code{OM@@nyears+1} columns.
-#' @slot NAA An array for the predicted numbers at age with dimension \code{OM@@nsim}, \code{OM@@nyears+1}, and \code{OM@@maxage+1}.
-#' @slot CAA An array for the predicted catch at age with dimension \code{OM@@nsim}, \code{OM@@nyears}, \code{OM@@maxage}, and nfleet.
-#' @slot CAL An array for the predicted catch at length with dimension \code{OM@@nsim}, \code{OM@@nyears}, length bins, and nfleet.
-#' @slot conv A logical vector of length \code{OM@@nsim} indicating convergence of the RCM in the i-th simulation.
-#' @slot Misc A list of length \code{OM@@nsim} with more output from the fitted RCM. Within each simulation, a named list containing items of interest include:
+#' @slot OM An updated operating model, class [OM-class].
+#' @slot SSB A matrix of estimated spawning biomass with `OM@@nsim` rows and `OM@@nyears+1` columns.
+#' @slot NAA An array for the predicted numbers at age with dimension `OM@@nsim`, `OM@@nyears+1`, and `OM@@maxage+1`.
+#' @slot CAA An array for the predicted catch at age with dimension `OM@@nsim`, `OM@@nyears`, `OM@@maxage`, and nfleet.
+#' @slot CAL An array for the predicted catch at length with dimension `OM@@nsim`, `OM@@nyears`, length bins, and nfleet.
+#' @slot conv A logical vector of length `OM@@nsim` indicating convergence of the RCM in the i-th simulation.
+#' @slot Misc A list of length `OM@@nsim` with more output from the fitted RCM. Within each simulation, a named list containing items of interest include:
 #'
 #' \itemize{
 #' \item B - total biomass - vector of length nyears+1
 #' \item EPR0 - annual unfished spawners per recruit - vector of length nyears
-#' \item ageM - age of 50\% maturity - integer
-#' \item EPR0_SR - unfished spawners per recruit for the stock-recruit relationship (mean EPR0 over the first \code{ageM} years) - numeric
+#' \item ageM - age of 50% maturity - integer
+#' \item EPR0_SR - unfished spawners per recruit for the stock-recruit relationship (mean EPR0 over the first `ageM` years) - numeric
 #' \item R0 - unfished recruitment for the stock-recruit relationship - numeric
 #' \item h - steepness for the stock-recruit relationship - numeric
 #' \item Arec - stock-recruit alpha parameter - numeric
@@ -66,19 +66,19 @@
 #' @slot mean_fit A list of output from fit to mean values of life history parameters in the operating model. The named list consists of:
 #'
 #' \itemize{
-#' \item obj - a list with components returned from \code{\link[TMB]{MakeADFun}}.
-#' \item opt - a list with components from calling \code{\link[stats]{nlminb}} to \code{obj}.
+#' \item obj - a list with components returned from [TMB::MakeADFun()].
+#' \item opt - a list with components from calling [stats::nlminb()] to `obj`.
 #' \item SD - a list (class sdreport) with parameter estimates and their standard errors, obtained from
-#' \code{\link[TMB]{sdreport}}.
-#' \item report - a list of model output reported from the TMB executable, i.e. \code{obj$report()}. See Misc.
+#' [TMB::sdreport()].
+#' \item report - a list of model output reported from the TMB executable, i.e. `obj$report()`. See Misc.
 #' }
-#' @slot data A \linkS4class{RCMdata} object containing data inputs for the RCM.
+#' @slot data A [RCMdata-class] object containing data inputs for the RCM.
 #' @slot config A list describing configuration of the RCM:
 #' \itemize{
 #' \item drop_sim - a vector of simulations that were dropped for the output
 #' }
 #'
-#' @seealso \link{plot.RCModel} \link{RCM}
+#' @seealso [plot.RCModel] [RCM]
 #' @author Q. Huynh
 #' @export RCModel
 #' @exportClass RCModel
@@ -102,32 +102,32 @@ setMethod("initialize", "RCModel", function(.Object, ...) {
 #' @name plot.RCModel
 #' @aliases plot,RCModel,missing-method
 #' @title Plot RCM scope output
-#' @description Produces HTML file (via markdown) figures of parameter estimates and output from an \linkS4class{Assessment} object.
+#' @description Produces HTML file (via markdown) figures of parameter estimates and output from an [Assessment-class] object.
 #' Plots histograms of operating model parameters that are updated by the RCM scoping function, as well as diagnostic plots
-#' for the fits to the RCM for each simulation. \code{compare_RCM} plots a short report that compares output from multiple RCM objects,
+#' for the fits to the RCM for each simulation. `compare_RCM` plots a short report that compares output from multiple RCM objects,
 #' assuming the same model structure, i.e., identical matrix and array dimensions among models, but different data weightings, data omissions, etc.
 #'
-#' @param x An object of class \linkS4class{RCModel} (output from \link{RCM}).
-#' @param compare Logical, if TRUE, the function will run \code{runMSE} to compare the historical period of the operating model
+#' @param x An object of class [RCModel-class] (output from [RCM]).
+#' @param compare Logical, if TRUE, the function will run `runMSE` to compare the historical period of the operating model
 #' and the RCM output.
 #' @param filename Character string for the name of the markdown and HTML files.
 #' @param dir The directory in which the markdown and HTML files will be saved.
-#' @param sims A logical vector of length \code{x@@OM@@nsim} or a numeric vector indicating which simulations to keep.
+#' @param sims A logical vector of length `x@@OM@@nsim` or a numeric vector indicating which simulations to keep.
 #' @param Year Optional, a vector of years for the historical period for plotting.
 #' @param f_name Character vector for fleet names.
 #' @param s_name Character vector for survey names.
 #' @param MSY_ref A numeric vector for reference horizontal lines for B/BMSY plots.
 #' @param bubble_adj A number to adjust the size of bubble plots (for residuals of age and length comps).
 #' @param scenario Optional, a named list to label each simulation in the RCM for plotting, e.g.:
-#' \code{list(names = c("low M", "high M"), col = c("blue", "red"))}.
+#' `list(names = c("low M", "high M"), col = c("blue", "red"))`.
 #' @param title Optional character string for an alternative title for the markdown report.
 #' @param open_file Logical, whether the HTML document is opened after it is rendered.
 #' @param quiet Logical, whether to silence the markdown rendering function.
-#' @param render_args A list of other arguments to pass to \link[rmarkdown]{render}.
-#' @param ... For \code{compare_RCM}, multiple RCM objects for comparison.
-#' @return Returns invisibly the output from \link[rmarkdown]{render}.
+#' @param render_args A list of other arguments to pass to [render][rmarkdown::render].
+#' @param ... For `compare_RCM`, multiple RCM objects for comparison.
+#' @return Returns invisibly the output from [render][rmarkdown::render].
 #' @importFrom rmarkdown render
-#' @seealso \linkS4class{RCModel} \link{RCM}
+#' @seealso [RCModel-class] [RCM]
 #' @exportMethod plot
 setMethod("plot", signature(x = "RCModel", y = "missing"),
           function(x, compare = FALSE, filename = "RCM", dir = tempdir(), sims = 1:x@OM@nsim, Year = NULL,
@@ -138,7 +138,7 @@ setMethod("plot", signature(x = "RCModel", y = "missing"),
             # Or directly provide a retrospective object (dots$retro)
             dots <- list(...)
             if (!is.null(dots$retrospective) && dots$retrospective) {
-              message("Running retrospective on mean fit object...")
+              message_info("Running retrospective on mean fit object...")
               if (is.null(dots$nyr)) {
                 retro <- retrospective(x)
               } else retro <- retrospective(x, dots$nyr)
@@ -263,7 +263,7 @@ setMethod("plot", signature(x = "RCModel", y = "missing"),
             }
             
             if (compare) {
-              message("Getting Hist object from runMSE...")
+              message_info("Getting Hist object from runMSE...")
               Hist <- runMSE(OM, Hist = TRUE, silent = TRUE, parallel = snowfall::sfIsRunning())
               compare_rmd <- rmd_RCM_Hist_compare()
             } else {
@@ -539,16 +539,16 @@ setMethod("plot", signature(x = "RCModel", y = "missing"),
 
             # Generate markdown report
             if (!dir.exists(dir)) {
-              message("Creating directory: \n", dir)
+              message_info("Creating directory: \n", dir)
               dir.create(dir)
             }
             write(rmd, file = file.path(dir, filename_rmd))
 
             # Rendering markdown file
-            message("Rendering markdown file: ", file.path(dir, filename_rmd))
+            message_info("Rendering markdown file: ", file.path(dir, filename_rmd))
+            message_info("See help(plot.RCModel) to adjust report and file directory.")
             output_filename <- do.call(rmarkdown::render, render_args)
             message("Rendered file: ", output_filename)
-            message("See help(plot.RCModel) to adjust report and file directory.")
 
             if (open_file) browseURL(output_filename)
             invisible(output_filename)
@@ -642,7 +642,7 @@ compare_RCM <- function(..., compare = FALSE, filename = "compare_RCM", dir = te
 
   #### MSY comparisons
   if (compare) {
-    message("Running runMSE() to get MSY reference points...")
+    message_info("Running runMSE() to get MSY reference points...")
     if (snowfall::sfIsRunning()) {
       Hist <- snowfall::sfClusterApplyLB(dots, function(xx) runMSE(xx@OM, Hist = TRUE, silent = TRUE))
     } else {
@@ -727,13 +727,13 @@ compare_RCM <- function(..., compare = FALSE, filename = "compare_RCM", dir = te
 
   # Generate markdown report
   if (!dir.exists(dir)) {
-    message("Creating directory: \n", dir)
+    message_info("Creating directory: \n", dir)
     dir.create(dir)
   }
   write(rmd, file = file.path(dir, filename_rmd))
 
   # Rendering markdown file
-  message("Rendering markdown file: ", file.path(dir, filename_rmd))
+  message_info("Rendering markdown file: ", file.path(dir, filename_rmd))
   output_filename <- do.call(rmarkdown::render, render_args)
   message("Rendered file: ", output_filename)
 

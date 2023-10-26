@@ -101,21 +101,21 @@ years are provided, then the mean M over the specified time period is used.}
 of the recruitment deviations (thus, treating it as a random effects/state-space variable).
 Otherwise, recruitment deviations are penalized parameters.}
 
-\item{silent}{Logical, passed to \code{\link[TMB]{MakeADFun}}, whether TMB
+\item{silent}{Logical, passed to \code{\link[TMB:MakeADFun]{TMB::MakeADFun()}}, whether TMB
 will print trace information during optimization. Used for diagnostics for model convergence.}
 
-\item{opt_hess}{Logical, whether the hessian function will be passed to \code{\link[stats]{nlminb}} during optimization
+\item{opt_hess}{Logical, whether the hessian function will be passed to \code{\link[stats:nlminb]{stats::nlminb()}} during optimization
 (this generally reduces the number of iterations to convergence, but is memory and time intensive and does not guarantee an increase
 in convergence rate). Ignored if \code{integrate = TRUE}.}
 
-\item{n_restart}{The number of restarts (calls to \code{\link[stats]{nlminb}}) in the optimization procedure, so long as the model
+\item{n_restart}{The number of restarts (calls to \code{\link[stats:nlminb]{stats::nlminb()}}) in the optimization procedure, so long as the model
 hasn't converged. The optimization continues from the parameters from the previous (re)start.}
 
 \item{control}{A named list of arguments for optimization to be passed to
-\code{\link[stats]{nlminb}}.}
+\code{\link[stats:nlminb]{stats::nlminb()}}.}
 
 \item{inner.control}{A named list of arguments for optimization of the random effects, which
-is passed on to \code{\link[TMB]{newton}}.}
+is passed on to \code{\link[TMB:newton]{TMB::newton()}}.}
 
 \item{...}{Other arguments to be passed.}
 }
@@ -123,41 +123,41 @@ is passed on to \code{\link[TMB]{newton}}.}
 An object of class \linkS4class{Assessment}.
 }
 \description{
-\code{SCA_RWM} is a modification of \link{SCA} that incorporates a random walk in M in logit space (constant with age). 
+\code{SCA_RWM} is a modification of \link{SCA} that incorporates a random walk in M in logit space (constant with age).
 Set the variance (\code{start$tau_M}) to a small value (0.001) in order to fix M for all years, which is functionally equivalent to \link{SCA}.
 }
 \details{
 The model estimates year-specific M (constant with age) as a random walk in logit space, bounded by
 a proportion of \code{start$M} (specified in \code{M_bounds}).
 
-The starting value for the first year M (start$M) is \code{Data@Mort[x]} and is fixed, unless a prior is provided (\code{prior$M}). 
-The fixed SD of the random walk (\code{tau_M}) is 0.05, by default. 
+The starting value for the first year M (start$M) is \code{Data@Mort[x]} and is fixed, unless a prior is provided (\code{prior$M}).
+The fixed SD of the random walk (\code{tau_M}) is 0.05, by default.
 
-Steepness and unfished recruitment in the estimation model, along with unfished reference points, correspond to spawners per recruit using the first year M. 
-With argument \code{refyear}, new unfished reference points and steepness values are calculated. See examples. 
+Steepness and unfished recruitment in the estimation model, along with unfished reference points, correspond to spawners per recruit using the first year M.
+With argument \code{refyear}, new unfished reference points and steepness values are calculated. See examples.
 
 Alternative values can be provided in the start list (see examples):
 \itemize{
-\item \code{R0} Unfished recruitment, except when \code{SR = "none"} where it is mean recruitment. 
-By default, 150\% Data@OM$R0[x] is used as the start value in closed-loop simulation, and 400\% of mean catch otherwise.
-\item \code{h} Steepness. Otherwise, Data@steep[x] is used, or 0.9 if empty.
-\item \code{M} Natural mortality in the first year. Otherwise, Data@Mort[x] is used.
+\item \code{R0} Unfished recruitment, except when \code{SR = "none"} where it is mean recruitment.
+By default, 150\% \code{Data@OM$R0[x]} is used as the start value in closed-loop simulation, and 400\\% of mean catch otherwise.
+\item \code{h} Steepness. Otherwise, \code{Data@steep[x]} is used, or 0.9 if empty.
+\item \code{M} Natural mortality in the first year. Otherwise, \code{Data@Mort[x]} is used.
 \item \code{vul_par} Vulnerability parameters, see next paragraph.
 \item \code{F} A vector of length nyears for year-specific fishing mortality.
 \item \code{F_equilibrium} Equilibrium fishing mortality leading into first year of the model (to determine initial depletion). By default, 0.
-\item \code{omega} Lognormal SD of the catch (observation error) when \code{catch_eq = "Baranov"}. By default, Data@CV_Cat[x].
-\item \code{tau} Lognormal SD of the recruitment deviations (process error). By default, Data@sigmaR[x].
-\item \code{tau_M} The fixed SD of the random walk in M. By default, 0.05. 
+\item \code{omega} Lognormal SD of the catch (observation error) when \code{catch_eq = "Baranov"}. By default, \code{Data@CV_Cat[x]}.
+\item \code{tau} Lognormal SD of the recruitment deviations (process error). By default, \code{Data@sigmaR[x]}.
+\item \code{tau_M} The fixed SD of the random walk in M. By default, 0.05.
 }
 
 See \link{SCA} for all other information about the structure and setup of the model.
 
-The SCA builds in a stock-recruit relationship into the model. Annual unfished and MSY reference points are 
+The SCA builds in a stock-recruit relationship into the model. Annual unfished and MSY reference points are
 calculated and reported in TMB_report of the \linkS4class{Assessment} object.
 }
 \section{Online Documentation}{
 
-Model description and equations are available on the openMSE 
+Model description and equations are available on the openMSE
 \href{https://openmse.com/features-assessment-models/2-sca/}{website}.
 }
 

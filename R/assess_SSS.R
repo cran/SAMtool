@@ -1,7 +1,7 @@
 
 #' Simple Stock Synthesis
 #'
-#' A simple age-structured model (\link{SCA_Pope}) fitted to a time series of catch going back to unfished conditions.
+#' A simple age-structured model ([SCA_Pope]) fitted to a time series of catch going back to unfished conditions.
 #' Terminal depletion (ratio of current total biomass to unfished biomass) is by default fixed to 0.4. Selectivity is fixed 
 #' to the maturity ogive, although it can be overridden with the start argument. The sole parameter estimated is 
 #' R0 (unfished recruitment), with no process error.
@@ -9,32 +9,32 @@
 #' @param x A position in the Data object (by default, equal to one for assessments).
 #' @param Data An object of class Data
 #' @param dep Depletion value to use in the model. Can be an expression that will be evaluated inside the function.
-#' @param SR Stock-recruit function (either \code{"BH"} for Beverton-Holt or \code{"Ricker"}).
+#' @param SR Stock-recruit function (either `"BH"` for Beverton-Holt or `"Ricker"`).
 #' @param rescale A multiplicative factor that rescales the catch in the assessment model, which
-#' can improve convergence. By default, \code{"mean1"} scales the catch so that time series mean is 1, otherwise a numeric.
+#' can improve convergence. By default, `"mean1"` scales the catch so that time series mean is 1, otherwise a numeric.
 #' Output is re-converted back to original units.
 #' @param start Optional named list of starting values. Entries can be expressions that are evaluated in the function:
 #' \itemize{
-#' \item \code{R0} Unfished recruitment
-#' \item \code{vul_par} A length-two vector for the age of 95\% and 50\% fleet selectivity. Fixed to maturity otherwise.
+#' \item `R0` Unfished recruitment
+#' \item `vul_par` A length-two vector for the age of 95% and 50% fleet selectivity. Fixed to maturity otherwise.
 #' }
-#' @param prior A named list for the parameters of any priors to be added to the model. See details in \code{SCA_Pope}.
-#' @param silent Logical, passed to \code{\link[TMB]{MakeADFun}}, whether TMB
+#' @param prior A named list for the parameters of any priors to be added to the model. See details in `SCA_Pope`.
+#' @param silent Logical, passed to [TMB::MakeADFun()], whether TMB
 #' will print trace information during optimization. Used for diagnostics for model convergence.
-#' @param opt_hess Logical, whether the hessian function will be passed to \code{\link[stats]{nlminb}} during optimization
+#' @param opt_hess Logical, whether the hessian function will be passed to [stats::nlminb()] during optimization
 #' (this generally reduces the number of iterations to convergence, but is memory and time intensive and does not guarantee an increase
 #' in convergence rate).
-#' @param n_restart The number of restarts (calls to \code{\link[stats]{nlminb}}) in the optimization procedure, so long as the model
+#' @param n_restart The number of restarts (calls to [stats::nlminb()]) in the optimization procedure, so long as the model
 #' hasn't converged. The optimization continues from the parameters from the previous (re)start.
-#' @param control A named list of arguments for optimization to be passed to \code{\link[stats]{nlminb}}.
+#' @param control A named list of arguments for optimization to be passed to [stats::nlminb()].
 #' @param ... Other arguments to be passed (not currently used).
-#' @details In SAMtool, SSS is an implementation of \link{SCA_Pope} with fixed final depletion 
+#' @details In SAMtool, SSS is an implementation of [SCA_Pope] with fixed final depletion 
 #' (in terms of total biomass, not spawning biomass) assumption.
 #' @references
 #' Cope, J.M. 2013. Implementing a statistical catch-at-age model (Stock Synthesis) as a tool for
 #' deriving overfishing limits in data-limited situations. Fisheries Research 142:3-14.
 #' @author Q. Huynh
-#' @return An object of class \linkS4class{Assessment}.
+#' @return An object of class [Assessment-class].
 #' @examples
 #' res <- SSS(Data = Red_snapper)
 #'

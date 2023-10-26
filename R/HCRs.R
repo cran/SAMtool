@@ -3,58 +3,58 @@
 #' 
 #' A linear segmented output control rule where the target F (used for the TAC recommendation) 
 #' is a function of an operational control point (OCP) such as spawning depletion or spawning biomass. 
-#' The segments of the HCR are specified by arguments \code{OCP} and \code{relF}. Beyond the range of \code{OCP}, the response will be flat.
-#' \link{HCR_ramp} uses \code{HCR_segment} with two control points.
+#' The segments of the HCR are specified by arguments `OCP` and `relF`. Beyond the range of `OCP`, the response will be flat.
+#' [HCR_ramp] uses `HCR_segment` with two control points.
 #' 
-#' @param Assessment An object of class \linkS4class{Assessment} with estimates of
+#' @param Assessment An object of class [Assessment-class] with estimates of
 #' FMSY or UMSY, vulnerable biomass, and spawning biomass depletion in terminal year.
 #' @param reps The number of stochastic samples of the TAC recommendation.
 #' @param OCP_type The type of operational control points (OCPs) for the harvest control rule used to determine the reduction in F.
 #' See below.
 #' @param OCP Numeric vector of operational control points for the HCR (in increasing order).
 #' @param Ftarget_type The type of F used for the target fishing mortality rate. See below.
-#' @param relF Numeric vector of Ftarget corresponding to the values in \code{OCP}.
-#' @param SPR_OCP The value of spawning potential ratio for the OCP if \code{OCP_type = "F_FSPR"}. By default, 0.4 (F40\%).
-#' @param SPR_targ The target value of spawning potential ratio if \code{Ftarget_type = "FSPR"}. By default, 0.4 (F40\%). 
+#' @param relF Numeric vector of Ftarget corresponding to the values in `OCP`.
+#' @param SPR_OCP The value of spawning potential ratio for the OCP if `OCP_type = "F_FSPR"`. By default, 0.4 (F40%).
+#' @param SPR_targ The target value of spawning potential ratio if `Ftarget_type = "FSPR"`. By default, 0.4 (F40%). 
 #' @param ... Miscellaneous arguments.
-#' @return An object of class \linkS4class{Rec} with the TAC recommendation.
+#' @return An object of class [Rec-class] with the TAC recommendation.
 #' @author Q. Huynh
 #' @details 
 #' 
 #' The catch advice is calculated using the catch equation of the corresponding
-#' assessment. See \code{Assessment@forecast$catch_eq}, a function that returns the catch advice for a specified \code{Ftarget}.
+#' assessment. See `Assessment@forecast$catch_eq`, a function that returns the catch advice for a specified `Ftarget`.
 #' 
-#' \emph{Operational control points (OCP_type)}
+#' *Operational control points (OCP_type)*
 #' 
 #' The following are the available options for harvest control rule inputs, and the source of those values
-#' in the \linkS4class{Assessment} object:
+#' in the [Assessment-class] object:
 #' 
 #' \itemize{
-#' \item \strong{Default} \code{"SSB_SSB0"}: Spawning depletion. Uses the last value in  \code{Assessment@@SSB_SSB0} vector.
-#' \item \code{"SSB_SSBMSY"}: Spawning biomass relative to MSY. Uses the last value in \code{Assessment@@SSB_SSBMSY} vector.
-#' \item \code{"SSB_dSSB0"}: Dynamic depletion (SSB relative to the historical reconstructed biomass with F = 0). Uses the last value in
-#' \code{Assessment@@SSB/Assessment@@TMB_report$dynamic_SSB0}.
-#' \item \code{"F_FMSY"}: Fishing mortality relative to MSY. Uses the last value in \code{Assessment@@F_FMSY}.
-#' \item \code{"F_F01"}: Fishing mortality relative to F_0.1 (yield per recruit), calculated from the data frame in
-#' \code{Assessment@@forecast[["per_recruit"]]}.
-#' \item \code{"F_FSPR"}: Fishing mortality relative to F_SPR% (the F that produces the spawning potential ratio specified in
-#' \code{"SPR_OCP"}, calculated from the data frame in \code{Assessment@@forecast[["per_recruit"]]}.
+#' \item **Default** `"SSB_SSB0"`: Spawning depletion. Uses the last value in  `Assessment@@SSB_SSB0` vector.
+#' \item `"SSB_SSBMSY"`: Spawning biomass relative to MSY. Uses the last value in `Assessment@@SSB_SSBMSY` vector.
+#' \item `"SSB_dSSB0"`: Dynamic depletion (SSB relative to the historical reconstructed biomass with F = 0). Uses the last value in
+#' `Assessment@@SSB/Assessment@@TMB_report$dynamic_SSB0`.
+#' \item `"F_FMSY"`: Fishing mortality relative to MSY. Uses the last value in `Assessment@@F_FMSY`.
+#' \item `"F_F01"`: Fishing mortality relative to F_0.1 (yield per recruit), calculated from the data frame in
+#' `Assessment@@forecast[["per_recruit"]]`.
+#' \item `"F_FSPR"`: Fishing mortality relative to F_SPR% (the F that produces the spawning potential ratio specified in
+#' `"SPR_OCP"`, calculated from the data frame in `Assessment@@forecast[["per_recruit"]]`.
 #' }
 #' 
-#' \emph{Fishing mortality target (Ftarget_type)}
+#' *Fishing mortality target (Ftarget_type)*
 #' 
 #' The type of F for which the corresponding catch is calculated in the HCR is specified here. The source of those values
-#' in the \linkS4class{Assessment} object is specified:
+#' in the [Assessment-class] object is specified:
 #' 
 #' \itemize{
-#' \item \strong{Default} \code{"FMSY"}: Fishing mortality relative to MSY. Uses the value in \code{Assessment@@FMSY}.
-#' \item \code{"F01"}: Fishing mortality relative to F_0.1 (yield per recruit), calculated from the data frame in
-#' \code{Assessment@@forecast[["per_recruit"]]}.
-#' \item \code{"Fmax"}: Fishing mortality relative to F_max (maximizing yield per recruit), calculated from the data frame in
-#' \code{Assessment@@forecast[["per_recruit"]]}.
-#' \item \code{"FSPR"}: Fishing mortality relative to F_SPR% (the F that produces the spawning potential ratio specified in
-#' \code{"SPR_targ"}, calculated from data frame in \code{Assessment@@forecast[["per_recruit"]]}.
-#' \item \code{"abs"}: Fishing mortality is independent of any model output and is explicitly specified in \code{relF}.
+#' \item **Default** `"FMSY"`: Fishing mortality relative to MSY. Uses the value in `Assessment@@FMSY`.
+#' \item `"F01"`: Fishing mortality relative to F_0.1 (yield per recruit), calculated from the data frame in
+#' `Assessment@@forecast[["per_recruit"]]`.
+#' \item `"Fmax"`: Fishing mortality relative to F_max (maximizing yield per recruit), calculated from the data frame in
+#' `Assessment@@forecast[["per_recruit"]]`.
+#' \item `"FSPR"`: Fishing mortality relative to F_SPR% (the F that produces the spawning potential ratio specified in
+#' `"SPR_targ"`, calculated from data frame in `Assessment@@forecast[["per_recruit"]]`.
+#' \item `"abs"`: Fishing mortality is independent of any model output and is explicitly specified in `relF`.
 #' }
 #' 
 #' @examples 
@@ -198,19 +198,19 @@ class(HCR_segment) <- "HCR"
 #' An output control rule with a ramp that reduces the target F (used for the TAC recommendation) linearly
 #' as a function of an operational control point (OCP) such as spawning depletion or spawning biomass. The reduction in F is linear when the OCP
 #' is between the target OCP (TOCP) and the limit OCP (LOCP). The target F is maximized at or above the TOCP. Below the LOCP,
-#' the target F is minimized. For example, the TOCP and LOCP for 40\% and 10\% spawning depletion, respectively, in the 40-10 control rule.
-#' Ftarget is FMSY above the TOCP and zero below the LOCP. This type of control rule can generalized with more control points (>2) in \link{HCR_segment}.
-#' Class HCR objects are typically used with function \link{make_MP}.
+#' the target F is minimized. For example, the TOCP and LOCP for 40% and 10% spawning depletion, respectively, in the 40-10 control rule.
+#' Ftarget is FMSY above the TOCP and zero below the LOCP. This type of control rule can generalized with more control points (>2) in [HCR_segment].
+#' Class HCR objects are typically used with function [make_MP].
 #'
 #' @param LOCP Numeric, the limit value for the OCP in the HCR.
 #' @param TOCP Numeric, the target value for the OCP in the HCR.
-#' @param relF_min The relative value of Ftarget (i.e., as a proportion) if \code{OCP < LOCP}.
-#' @param relF_max The relative value of Ftarget if \code{OCP > TOCP}.
+#' @param relF_min The relative value of Ftarget (i.e., as a proportion) if `OCP < LOCP`.
+#' @param relF_max The relative value of Ftarget if `OCP > TOCP`.
 #' @inheritParams HCR_segment
 #' @inherit HCR_segment details
 #' @describeIn HCR_ramp Generic ramped-HCR function where user specifies OCP and corresponding limit and target
 #' points, as well as minimum and maximum relative F target.
-#' @return An object of class \linkS4class{Rec} with the TAC recommendation.
+#' @return An object of class [Rec-class] with the TAC recommendation.
 #' @author Q. Huynh & T. Carruthers
 #' @references
 #' Deroba, J.J. and Bence, J.R. 2008. A review of harvest policies: Understanding relative
@@ -224,7 +224,7 @@ class(HCR_segment) <- "HCR"
 #'
 #' Restrepo, V.R. and Power, J.E. 1999. Precautionary control rules in US fisheries
 #' management: specification and performance. ICES Journal of Marine Science 56:846-852.
-#' @seealso \link{HCR_segment} \link{HCR_MSY} \link{HCRlin} \link{make_MP}
+#' @seealso [HCR_segment] [HCR_MSY] [HCRlin] [make_MP]
 #' @examples
 #' # 40-10 linear ramp
 #' Brel <- seq(0, 1, length.out = 200)
@@ -283,7 +283,7 @@ class(HCR40_10) <- "HCR"
 
 
 
-#' @describeIn HCR_ramp More conservative than \code{HCR40_10}, with LOCP and TOCP of 0.2 and 0.6
+#' @describeIn HCR_ramp More conservative than `HCR40_10`, with LOCP and TOCP of 0.2 and 0.6
 #' spawning depletion, respectively).
 #' @export
 HCR60_20 <- function(Assessment, reps = 1, Ftarget_type = "FMSY", SPR_targ = 0.4, ...) {
@@ -305,20 +305,20 @@ class(HCR80_40MSY) <- "HCR"
 #' A simple control rule that specifies the total allowable catch (TAC) as a function of the abundance of the first 
 #' projection year and some fraction of FMSY/UMSY. 
 #'
-#' @param Assessment An object of class \linkS4class{Assessment} with estimates of
+#' @param Assessment An object of class [Assessment-class] with estimates of
 #' FMSY or UMSY and vulnerable biomass in terminal year.
 #' @param reps The number of stochastic samples of the TAC recommendation.
-#' @param MSY_frac The fraction of FMSY or UMSY for calculating the TAC (e.g. MSY_frac = 0.75 fishes at 75\% of FMSY).
+#' @param MSY_frac The fraction of FMSY or UMSY for calculating the TAC (e.g. MSY_frac = 0.75 fishes at 75% of FMSY).
 #' @param ... Miscellaneous arguments.
 #' @details 
 #' The catch advice is calculated using the catch equation of the corresponding
-#' assessment. See \code{Assessment@forecast$catch_eq}, a function that returns the catch advice for a specified \code{Ftarget}.
-#' @return An object of class \linkS4class{Rec} with the TAC recommendation.
+#' assessment. See `Assessment@forecast$catch_eq`, a function that returns the catch advice for a specified `Ftarget`.
+#' @return An object of class [Rec-class] with the TAC recommendation.
 #' @author Q. Huynh
 #' @references
 #' Punt, A. E, Dorn, M. W., and Haltuch, M. A. 2008. Evaluation of threshold management strategies
 #' for groundfish off the U.S. West Coast. Fisheries Research 94:251-266.
-#' @seealso \link{make_MP} \link{HCR_ramp}
+#' @seealso [make_MP] [HCR_ramp]
 #' @examples
 #' # create an MP to run in closed-loop MSE (fishes at UMSY)
 #' SPMSY <- make_MP(SP, HCR_MSY)
@@ -338,26 +338,26 @@ class(HCR_MSY) <- "HCR"
 #' Fixed escapement harvest control rule
 #'
 #' A simple control rule that allows fishing when the operational control point (OCP) is above some threshold.
-#' By default, this function sets the TAC at F = 100\% FMSY when spawning depletion > 0.1.
+#' By default, this function sets the TAC at F = 100% FMSY when spawning depletion > 0.1.
 #'
-#' @param Assessment An object of class \linkS4class{Assessment} with estimates of
+#' @param Assessment An object of class [Assessment-class] with estimates of
 #' FMSY or UMSY and vulnerable biomass in terminal year.
 #' @param reps The number of stochastic samples of the TAC recommendation.
 #' @param OCP_type The type of operational control points (OCPs) for the harvest control rule used to determine 
-#' whether there is fishing. By default, use (\code{"SSB_SSB0"} for spawning depletion. Other biomass OCPs include \code{"SSB_SSBMSY"} for spawning biomass relative to MSY and
-#' \code{"SSB_dSSB0"}, for dynamic depletion (dynamic SSB0 is the historical reconstructed biomass with F = 0).
-#' For F-based OCPs, the terminal year fishing mortality relative F01 or Fmax (using yield-per-recruit) or F-SPR\% (see \code{SPR_OCP} argument) can be used.
+#' whether there is fishing. By default, use (`"SSB_SSB0"` for spawning depletion. Other biomass OCPs include `"SSB_SSBMSY"` for spawning biomass relative to MSY and
+#' `"SSB_dSSB0"`, for dynamic depletion (dynamic SSB0 is the historical reconstructed biomass with F = 0).
+#' For F-based OCPs, the terminal year fishing mortality relative F01 or Fmax (using yield-per-recruit) or F-SPR% (see `SPR_OCP` argument) can be used.
 #' @param OCP_threshold The value of the OCP above which fishing can occur.
 #' @param Ftarget_type The type of F used for the target fishing mortality rate.
-#' @param relF_max The relative value of Ftarget if \code{OCP > OCP_treshold}.
+#' @param relF_max The relative value of Ftarget if `OCP > OCP_treshold`.
 #' @param ... Miscellaneous arguments.
-#' @return An object of class \linkS4class{Rec} with the TAC recommendation.
+#' @return An object of class [Rec-class] with the TAC recommendation.
 #' @author Q. Huynh
 #' @inherit HCR_MSY details 
 #' @references
 #' Deroba, J.J. and Bence, J.R. 2008. A review of harvest policies: Understanding relative
 #' performance of control rules. Fisheries Research 94:210-223.
-#' @seealso \link{make_MP} \link{HCR_ramp}
+#' @seealso [make_MP] [HCR_ramp]
 #' @examples
 #' # create an MP to run in closed-loop MSE (fishes at FMSY when B/B0 > 0.2)
 #' SP_escapement <- make_MP(SP, HCR_escapement)
@@ -385,12 +385,12 @@ class(HCR_escapement) <- "HCR"
 #'
 #' A simple control rule that explicitly specifies the target apical F independent of any model.
 #'
-#' @param Assessment An object of class \linkS4class{Assessment} with estimates of next year's abundance or biomass.
+#' @param Assessment An object of class [Assessment-class] with estimates of next year's abundance or biomass.
 #' @param reps The number of replicates of the TAC recommendation (not used).
 #' @param Ftarget The value of F.
-#' @return An object of class \linkS4class{Rec} with the TAC recommendation.
+#' @return An object of class [Rec-class] with the TAC recommendation.
 #' @author Q. Huynh
-#' @seealso \link{make_MP} \link{HCR_ramp}#' 
+#' @seealso [make_MP] [HCR_ramp]#' 
 #' @inherit HCR_MSY details 
 #' @examples
 #' # create an MP to run in closed-loop MSE (fishes at F = 0.2)
@@ -414,14 +414,14 @@ class(HCR_fixedF) <- "HCR"
 
 #' Generic linear harvest control rule based on biomass
 #'
-#' A general function used by \link{HCR_ramp} that adjusts the output (e.g., F) by a linear ramp based on 
+#' A general function used by [HCR_ramp] that adjusts the output (e.g., F) by a linear ramp based on 
 #' the value of the OCP relative to target and limit values.
 #'
 #' @param OCP_val The value of the operational control point (OCP).
 #' @param LOCP Numeric, the limit value for the OCP in the HCR.
 #' @param TOCP Numeric, the target value for the OCP in the HCR.
-#' @param relF_min The relative maximum value (e.g. a multiple of FMSY) if \code{OCP < LOCP}.
-#' @param relF_max The relative maximum value (e.g. a multiple of FMSY) if \code{OCP > TOCP}.
+#' @param relF_min The relative maximum value (e.g. a multiple of FMSY) if `OCP < LOCP`.
+#' @param relF_max The relative maximum value (e.g. a multiple of FMSY) if `OCP > TOCP`.
 #' @return Numeric adjustment factor.
 #' @author T. Carruthers
 #' @export HCRlin
@@ -502,12 +502,12 @@ powdif<-function(x,z,g){
 #' @param Assessment An Assessment object with estimates of UMSY or FMSY and
 #' terminal year vulnerable biomass.
 #' @param reps The number of stochastic draws of UMSY or FMSY.
-#' @param MSY_frac The fraction of FMSY or UMSY for calculating the TAC (e.g. MSY_frac = 0.75 fishes at 75\% of FMSY).
-#' @note \code{calculate_TAC} is deprecated as of version 1.2 in favor of \code{TAC_MSY} because
+#' @param MSY_frac The fraction of FMSY or UMSY for calculating the TAC (e.g. MSY_frac = 0.75 fishes at 75% of FMSY).
+#' @note `calculate_TAC` is deprecated as of version 1.2 in favor of `TAC_MSY` because
 #' the latter has a more informative name.
-#' @return A vector of length \code{reps} of stochastic samples of TAC recommendation. Returns NA's
+#' @return A vector of length `reps` of stochastic samples of TAC recommendation. Returns NA's
 #' if missing either UMSY/FMSY or vulnerable biomass.
-#' @seealso \link{HCR_MSY} \link{HCR40_10} \link{HCR60_20}
+#' @seealso [HCR_MSY] [HCR40_10] [HCR60_20]
 #' @aliases calculate_TAC
 #' @export
 TAC_MSY <- function(Assessment, reps, MSY_frac = 1) {

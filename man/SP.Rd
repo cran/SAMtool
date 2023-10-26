@@ -56,7 +56,7 @@ SP_SS(
 SP_Fox(x = 1, Data, ...)
 }
 \arguments{
-\item{x}{An index for the objects in \code{Data} when running in \link[MSEtool]{runMSE}.
+\item{x}{An index for the objects in \code{Data} when running in \link[MSEtool:runMSE]{runMSE}.
 Otherwise, equals to 1 When running an assessment interactively.}
 
 \item{Data}{An object of class Data.}
@@ -89,24 +89,24 @@ is half of carrying capacity.}
 Ignored if \code{n_seas} = 1.}
 
 \item{Euler_Lotka}{Integer. If greater than zero, the function will calculate a prior for the intrinsic rate of increase to use in the estimation model
-(in lieu of an explicit prior in argument \code{prior}). The value of this argument specifies the number of stochastic samples used to calculate the prior SD. 
+(in lieu of an explicit prior in argument \code{prior}). The value of this argument specifies the number of stochastic samples used to calculate the prior SD.
 See section on priors below.}
 
-\item{SR_type}{If \code{use_r_prior = TRUE}, the stock-recruit relationship used to calculate the stock-recruit alpha parameter from 
+\item{SR_type}{If \code{use_r_prior = TRUE}, the stock-recruit relationship used to calculate the stock-recruit alpha parameter from
 steepness and unfished spawners-per-recruit. Used to develop the r prior.}
 
-\item{silent}{Logical, passed to \code{\link[TMB]{MakeADFun}}, whether TMB
+\item{silent}{Logical, passed to \code{\link[TMB:MakeADFun]{TMB::MakeADFun()}}, whether TMB
 will print trace information during optimization. Used for diagnostics for model convergence.}
 
-\item{opt_hess}{Logical, whether the hessian function will be passed to \code{\link[stats]{nlminb}} during optimization
+\item{opt_hess}{Logical, whether the hessian function will be passed to \code{\link[stats:nlminb]{stats::nlminb()}} during optimization
 (this generally reduces the number of iterations to convergence, but is memory and time intensive and does not guarantee an increase
 in convergence rate). Ignored if \code{integrate = TRUE}.}
 
-\item{n_restart}{The number of restarts (calls to \code{\link[stats]{nlminb}}) in the optimization procedure, so long as the model
+\item{n_restart}{The number of restarts (calls to \code{\link[stats:nlminb]{stats::nlminb()}}) in the optimization procedure, so long as the model
 hasn't converged. The optimization continues from the parameters from the previous (re)start.}
 
 \item{control}{A named list of parameters regarding optimization to be passed to
-\code{\link[stats]{nlminb}}.}
+\code{\link[stats:nlminb]{stats::nlminb()}}.}
 
 \item{...}{For \code{SP_Fox}, additional arguments to pass to \code{SP}.}
 
@@ -124,10 +124,10 @@ once index data are available (\code{"index"}).}
 of the biomass deviations (thus, treating it as a state-space variable).}
 
 \item{inner.control}{A named list of arguments for optimization of the random effects, which
-is passed on to \link[TMB]{newton} via \code{\link[TMB]{MakeADFun}}.}
+is passed on to \link[TMB:newton]{newton} via \code{\link[TMB:MakeADFun]{TMB::MakeADFun()}}.}
 }
 \value{
-An object of \code{\linkS4class{Assessment}} containing objects and output from TMB.
+An object of \linkS4class{Assessment} containing objects and output from TMB.
 }
 \description{
 A surplus production model that uses only a time-series of catches and a relative abundance index
@@ -136,13 +136,13 @@ Continuous surplus production and fishing is modeled with sub-annual time steps 
 the behavior of ASPIC (Prager 1994). The Fox model, \code{SP_Fox}, fixes BMSY/K = 0.37 (1/e).
 The state-space version, \code{SP_SS} estimates annual deviates in biomass. An option allows for setting a
 prior for the intrinsic rate of increase.
-The function for the \code{spict} model (Pedersen and Berg, 2016) is available in \link[MSEtool]{MSEextra}.
+The function for the \code{spict} model (Pedersen and Berg, 2016) is available in \link[MSEtool:MSEextra]{MSEextra}.
 }
 \details{
 For \code{start} (optional), a named list of starting values of estimates can be provided for:
 \itemize{
 \item \code{MSY} Maximum sustainable yield.. Otherwise, 300\% of mean catch by default.
-\item \code{FMSY} Steepness. Otherwise, Data@Mort[x] or 0.2 is used.
+\item \code{FMSY} Steepness. Otherwise, \code{Data@Mort[x]} or 0.2 is used.
 \item \code{dep} Initial depletion (B/B0) in the first year of the model. By default, 1.
 \item \code{n} The production function exponent that determines BMSY/B0. By default, 2 so that BMSY/B0 = 0.5.
 \item \code{sigma} Lognormal SD of the index (observation error). By default, 0.05. Not
@@ -150,7 +150,7 @@ used with multiple indices.
 \item \code{tau} Lognormal SD of the biomass deviations (process error) in \code{SP_SS}. By default, 0.1.
 }
 
-Multiple indices are supported in the model. 
+Multiple indices are supported in the model.
 
 Tip: to create the Fox model (Fox 1970), just fix n = 1. See example.
 }
@@ -164,7 +164,7 @@ and a symmetric production function (n = 2).
 The following priors can be added as a named list, e.g., prior = list(r = c(0.25, 0.15), MSY = c(50, 0.1). For each parameter below, provide a vector of values as described:
 
 \itemize{
-\item \code{r} - A vector of length 2 for the lognormal prior mean (normal space) and SD (lognormal space). 
+\item \code{r} - A vector of length 2 for the lognormal prior mean (normal space) and SD (lognormal space).
 \item \code{MSY} - A vector of length 2 for the lognormal prior mean (normal space) and SD (lognormal space).
 }
 
@@ -177,7 +177,7 @@ a prior distribution for r. See \code{vignette("Surplus_production")} for more d
 
 \section{Online Documentation}{
 
-Model description and equations are available on the openMSE 
+Model description and equations are available on the openMSE
 \href{https://openmse.com/features-assessment-models/3-sp/}{website}.
 }
 

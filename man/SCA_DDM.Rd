@@ -91,27 +91,27 @@ By default, \code{"comp50"} uses the number of ages (smaller than the mode)
 for which the catch-at-age matrix has less than half the abundance than that at the mode.}
 
 \item{M_bounds}{A numeric vector of length 2 to indicate the M as B/B0 approaches zero and one, respectively.
-By default, set to 75\% and 125\%, respectively, of Data@Mort[x].}
+By default, set to 75\% and 125\%, respectively, of \code{Data@Mort[x]}.}
 
 \item{integrate}{Logical, whether the likelihood of the model integrates over the likelihood
 of the recruitment deviations (thus, treating it as a random effects/state-space variable).
 Otherwise, recruitment deviations are penalized parameters.}
 
-\item{silent}{Logical, passed to \code{\link[TMB]{MakeADFun}}, whether TMB
+\item{silent}{Logical, passed to \code{\link[TMB:MakeADFun]{TMB::MakeADFun()}}, whether TMB
 will print trace information during optimization. Used for diagnostics for model convergence.}
 
-\item{opt_hess}{Logical, whether the hessian function will be passed to \code{\link[stats]{nlminb}} during optimization
+\item{opt_hess}{Logical, whether the hessian function will be passed to \code{\link[stats:nlminb]{stats::nlminb()}} during optimization
 (this generally reduces the number of iterations to convergence, but is memory and time intensive and does not guarantee an increase
 in convergence rate). Ignored if \code{integrate = TRUE}.}
 
-\item{n_restart}{The number of restarts (calls to \code{\link[stats]{nlminb}}) in the optimization procedure, so long as the model
+\item{n_restart}{The number of restarts (calls to \code{\link[stats:nlminb]{stats::nlminb()}}) in the optimization procedure, so long as the model
 hasn't converged. The optimization continues from the parameters from the previous (re)start.}
 
 \item{control}{A named list of arguments for optimization to be passed to
-\code{\link[stats]{nlminb}}.}
+\code{\link[stats:nlminb]{stats::nlminb()}}.}
 
 \item{inner.control}{A named list of arguments for optimization of the random effects, which
-is passed on to \code{\link[TMB]{newton}}.}
+is passed on to \code{\link[TMB:newton]{TMB::newton()}}.}
 
 \item{...}{Other arguments to be passed.}
 }
@@ -121,7 +121,7 @@ An object of class \linkS4class{Assessment}.
 \description{
 A modification of \code{SCA} that incorporates density-dependent effects on M based on biomass depletion (Forrest et al. 2018).
 Set the bounds of M in the \code{M_bounds} argument, a length-2 vector where the first entry is M0, the M as B/B0 >= 1,
-and the second entry is M1, the M as B/B0 approaches zero. Note that M0 can be greater than M1 (compensatory) 
+and the second entry is M1, the M as B/B0 approaches zero. Note that M0 can be greater than M1 (compensatory)
 or M0 can be less than M1 (depensatory).
 }
 \details{
@@ -129,7 +129,7 @@ See \link{SCA} for more information on all arguments.
 }
 \section{Online Documentation}{
 
-Model description and equations are available on the openMSE 
+Model description and equations are available on the openMSE
 \href{https://openmse.com/features-assessment-models/2-sca/}{website}.
 }
 

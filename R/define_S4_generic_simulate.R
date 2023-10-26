@@ -1,8 +1,8 @@
 
 
-#' Class-\code{sim}
+#' Class-`sim`
 #'
-#' An S4 class that contains output from \link{simulate}.
+#' An S4 class that contains output from [simulate].
 #'
 #' @name sim-class
 #' @docType class
@@ -26,12 +26,12 @@ sim <- setClass("sim", slots = c(Model = "character",
 
 #' @name simulate
 #' @title Generate simulated data from TMB models in SAMtool
-#' @description A convenient wrapper function (\code{simulate}) to simulate data (and process error) from the likelihood function.
+#' @description A convenient wrapper function (`simulate`) to simulate data (and process error) from the likelihood function.
 #' 
-#' @param object An object of class \linkS4class{Assessment} or \linkS4class{RCModel} containing the fitted model.
+#' @param object An object of class [Assessment-class] or [RCModel-class] containing the fitted model.
 #' @author Q. Huynh
 #' @details Process error, e.g., recruitment deviations, will be re-sampled in the simulation.
-#' @return A \link{sim-class} object returning the original data, simulated data, original parameters, parameters estimated
+#' @return A [sim-class] object returning the original data, simulated data, original parameters, parameters estimated
 #' from simulated data, and process error used to simulate data.
 #' then a nested list of model output (`opt`, `SD`, and `report`).
 #' @export
@@ -45,7 +45,7 @@ setGeneric("simulate", function(object, ...) standardGeneric("simulate"))
 #' @param seed Used for the random number generator
 #' @param process_error Logical, indicates if process error is re-sampled in the simulation.
 #' @param refit Logical, whether to re-fit the model for each simulated dataset.
-#' @param cores The number of CPUs for parallel processing for model re-fitting if \code{refit = TRUE}.
+#' @param cores The number of CPUs for parallel processing for model re-fitting if `refit = TRUE`.
 #' @param ... Additional arguments
 #' 
 #' @importFrom stats runif
@@ -86,7 +86,7 @@ setMethod("simulate", signature(object = "Assessment"),
                                    "VPA" = NULL,
                                    "SCA" = c("log_rec_dev_sim", "log_early_rec_dev_sim", "logit_M_sim", "logit_M_walk_sim")
             )
-            if (process_error && is.null(process_vars)) message("No process error found for this model.")
+            if (process_error && is.null(process_vars)) message_info("No process error found for this model.")
             
             # Do simulation
             val <- lapply(1:nsim, Assess_sim, obj = object@obj, vars = vars, 

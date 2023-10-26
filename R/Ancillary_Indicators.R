@@ -34,7 +34,7 @@ mu<-function(x,mat,ind){
 
 #' Characterize posterior predictive data
 #'
-#' @param PPD An object of class Data stored in the Misc slot of an MSE object following a call of \code{runMSE(PPD = TRUE)}.
+#' @param PPD An object of class Data stored in the Misc slot of an MSE object following a call of `runMSE(PPD = TRUE)`.
 #' @param styr Positive integer, the starting year for calculation of quantities
 #' @param res Positive integer, the temporal resolution (chunks - normally years) over which to calculate quantities
 #' @param tsd Character vector of names of types of data: Cat = catch, Ind = relative abundance index, ML = mean length in catches
@@ -48,7 +48,7 @@ getinds<-function(PPD,styr,res=6, tsd= c("Cat","Cat","Cat","Ind","ML"),stat=c("s
   nsim<-dim(PPD@Cat)[1]
   proyears<-dim(PPD@Cat)[2]-styr+1
 
-  if(res>proyears)message(paste0("The temporal resolution for posterior predictive data calculation (",res,") is higher than the number of projected years (",proyears,"). Only one time step of indicators are calculated for ",proyears, " projected years."))
+  if(res>proyears)message_oops(paste0("The temporal resolution for posterior predictive data calculation (",res,") is higher than the number of projected years (",proyears,"). Only one time step of indicators are calculated for ",proyears, " projected years."))
   np<-floor(proyears/res)
 
   ntsd<-length(tsd)
@@ -130,7 +130,7 @@ plot_crosscorr<-function(indPPD,indData,pp=1,dnam=c("CS","CV","CM","IS","MLS"),r
 
 #' Calculates mahalanobis distance and rejection of the Null operating model
 #'
-#' Calculates mahalanobis distance and rejection of the Null operating model, used by wrapping function \link{PRBcalc}.
+#' Calculates mahalanobis distance and rejection of the Null operating model, used by wrapping function [PRBcalc].
 #'
 #' @param indPPD A 3D array of results arising from running getind on an MSE of the Null operating model (type of data/stat (e.g. mean catches),time period (chunk), simulation)
 #' @param indData A 3D array of results arising from running getind on an MSE of the Alternative operating model (type of data/stat (e.g. mean catches),time period (chunk), simulation)
@@ -216,7 +216,7 @@ Probs<-function(indPPD,indData,alpha=0.05,removedat=FALSE,removethresh=0.05){
 #' @param plotCC Logical, should the PPD cross correlations be plotted?
 #' @param removedat Logical, should data not contributing to the mahalanobis distance be removed?
 #' @param removethresh Positive fraction: the cumulative percentage of removed data (removedat=TRUE) that contribute to the mahalanobis distance
-#' @return A list object with two hierarchies of indexing, first by MP, second has two positions as described in \link{Probs}: (1) mahalanobis distance, (2) a matrix of type 1 error
+#' @return A list object with two hierarchies of indexing, first by MP, second has two positions as described in [Probs]: (1) mahalanobis distance, (2) a matrix of type 1 error
 #' (first row) and statistical power (second row), by time block.
 #' @author T. Carruthers
 #' @references Carruthers, T.R, and Hordyk, A.R. In press. Using management strategy evaluation to establish indicators of changing fisheries.
@@ -304,7 +304,7 @@ mahalanobis_contribution<-function(ind3Data,mu,covr){
 
 #' Plot statistical power of the indicator with increasing time blocks
 #'
-#' @param outlist A list object produced by the function \link{PRBcalc}
+#' @param outlist A list object produced by the function [PRBcalc]
 #' @param res Integer, the resolution (time blocking) for the calculation of PPD
 #' @param maxups Integer, the maximum number of update time blocks to plot
 #' @param MPs Character vector of MP names

@@ -61,7 +61,7 @@ calculation of MSY and unfished reference points.}
 \itemize{
 \item \code{vul} - a length two vector that constrains the vulnerability-at-age in the most recent years. The first number
 is the number of years in which vulnerability will be constrained (as a random walk in log space), the second number is the standard deviation of the random walk.
-The default 
+The default
 \item \code{R} - a length two vector that constrains the recruitment estimates in the most recent years. The first number
 is the number of years in which recruitment will be constrained (as a random walk in log space), the second number is the standard deviation of the random walk.
 }}
@@ -79,18 +79,18 @@ is the number of years in which recruitment will be constrained (as a random wal
 from which that quantile is used, i.e., \code{c(0.5, 5)} is the default that calculates median recruitment from the most recent 5 years of the model.
 }}
 
-\item{silent}{Logical, passed to \code{\link[TMB]{MakeADFun}}, whether TMB
+\item{silent}{Logical, passed to \code{\link[TMB:MakeADFun]{TMB::MakeADFun()}}, whether TMB
 will print trace information during optimization. Used for diagnostics for model convergence.}
 
-\item{opt_hess}{Logical, whether the hessian function will be passed to \code{\link[stats]{nlminb}} during optimization
+\item{opt_hess}{Logical, whether the hessian function will be passed to \code{\link[stats:nlminb]{stats::nlminb()}} during optimization
 (this generally reduces the number of iterations to convergence, but is memory and time intensive and does not guarantee an increase
 in convergence rate). Ignored if \code{integrate = TRUE}.}
 
-\item{n_restart}{The number of restarts (calls to \code{\link[stats]{nlminb}}) in the optimization procedure, so long as the model
+\item{n_restart}{The number of restarts (calls to \code{\link[stats:nlminb]{stats::nlminb()}}) in the optimization procedure, so long as the model
 hasn't converged. The optimization continues from the parameters from the previous (re)start.}
 
 \item{control}{A named list of arguments for optimization to be passed to
-\code{\link[stats]{nlminb}}.}
+\code{\link[stats:nlminb]{stats::nlminb()}}.}
 
 \item{...}{Other arguments to be passed.}
 }
@@ -134,14 +134,14 @@ if any catch-at-age value < 1e-4.
 
 It is recommended to do some preliminary fits with the VPA before running simulations en masse. See example below.
 
-Shrinkage, penalty functions that stabilize model estimates of recruitment and selectivity year-over-year near 
+Shrinkage, penalty functions that stabilize model estimates of recruitment and selectivity year-over-year near
 the end of the time series, alters the behavior of the model. This is something to tinker with in your initial
 model fits, and worth evaluating in closed-loop simulation.
 }
 
 \section{Online Documentation}{
 
-Model description and equations are available on the openMSE 
+Model description and equations are available on the openMSE
 \href{https://openmse.com/features-assessment-models/4-vpa/}{website}.
 }
 
