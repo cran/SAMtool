@@ -1,5 +1,13 @@
 The latest release of the SAMtool package is available on [CRAN](https://CRAN.R-project.org/package=SAMtool).
 
+## SAMtool 1.7.0
+- Add argument to adjust annual recruitment deviation bias correction in `RCM` in argument `pbc_recdev`. The bias correction from logspace to normal space is `exp(log_rec_dev[y] - 0.5 * bc_recdev[y] * sigmaR^2)` if the year-specific rec dev is estimated.
+- Add `RCMdata@I_delta` slot to specify survey timing (0-1) within year. Default assumption is zero is used which is consistent with previous versions.
+
+## SAMtool 1.6.5
+- Update `RCM2MOM` (report selectivity at length array, catch fractions).
+- Update RCM report to identify non-converged simulations in figures and data predictions for which there is no likelihood.
+
 ## SAMtool 1.6.4
 - RCM passes maturity at length parameters to operating model. While RCM only uses the corresponding age ogive, the OM later will back-calculate to retrieve the length parameters, but may not recover the original values.
 - RCM passes selectivity at length to operating model. This is needed to simulate length data in the projection.

@@ -1,11 +1,11 @@
 Package: SAMtool
 Type: Package
 Title: Stock Assessment Methods Toolkit
-Version: 1.6.4
+Version: 1.7.0
 Authors@R: c(person("Quang", "Huynh", email = "quang@bluematterscience.com", role = c("aut", "cre")), 
   person("Tom", "Carruthers", email = "tom@bluematterscience.com", role = "aut"),
   person("Adrian", "Hordyk", email = "adrian@bluematterscience.com", role = "aut"))
-Date: 2024-02-12
+Date: 2024-08-02
 Maintainer: Quang Huynh <quang@bluematterscience.com>
 Description: Simulation tools for closed-loop simulation are provided for the 'MSEtool' operating model to inform data-rich fisheries. 
   'SAMtool' provides a conditioning model, assessment models of varying complexity with standardized reporting, 
@@ -19,15 +19,15 @@ Suggests: caret, corpcor, covr, extraDistr, ggplot2, Gmisc, knitr,
         mvtnorm, numDeriv, reshape2, shiny, testthat, tmbstan, usethis
 LazyData: yes
 LazyLoad: yes
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.1
 Encoding: UTF-8
 URL: https://openmse.com, https://samtool.openmse.com,
         https://github.com/Blue-Matter/SAMtool
 BugReports: https://github.com/Blue-Matter/SAMtool/issues
 NeedsCompilation: yes
-Packaged: 2024-02-15 01:42:20 UTC; qhuynh
+Packaged: 2024-08-29 15:41:37 UTC; quang
 Author: Quang Huynh [aut, cre],
   Tom Carruthers [aut],
   Adrian Hordyk [aut]
 Repository: CRAN
-Date/Publication: 2024-02-15 20:10:02 UTC
+Date/Publication: 2024-08-29 18:00:02 UTC

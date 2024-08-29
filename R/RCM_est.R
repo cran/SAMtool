@@ -163,6 +163,7 @@ RCM_est_data <- function(x, RCMdata, selectivity, s_selectivity, LWT = list(), c
                    ivul_type = s_selectivity, 
                    abs_I = RCMdata@abs_I, 
                    I_units = as.integer(RCMdata@I_units), 
+                   I_delta = if (.hasSlot(RCMdata, "I_delta")) RCMdata@I_delta else rep(0, nsurvey), 
                    age_error = RCMdata@age_error,
                    SR_type = SR_type, 
                    LWT_fleet = LWT_fleet, LWT_index = LWT_index, 
@@ -177,7 +178,8 @@ RCM_est_data <- function(x, RCMdata, selectivity, s_selectivity, LWT = list(), c
                    nll_gr = 0L,
                    sim_process_error = 0L,
                    spawn_time_frac = ifelse(is.null(StockPars$spawn_time_frac), 0, StockPars$spawn_time_frac[x]),
-                   est_q = ifelse(is.na(map$log_q), 0L, 1L))
+                   est_q = ifelse(is.na(map$log_q), 0L, 1L),
+                   pbc_recdev = if (is.null(dots$pbc_recdev)) rep(1, nyears) else dots$pbc_recdev)
                    
   TMB_data$est_vul <- ifelse(is.na(map$vul_par) | duplicated(map$vul_par), 0, 1) %>%
     matrix(length(map$vul_par)/RCMdata@Misc$nsel_block, RCMdata@Misc$nsel_block)
@@ -625,25 +627,18 @@ RCM_posthoc_adjust <- function(report, obj, par = obj$env$last.par.best, dynamic
   }
   report$R0_annual <- report$E0/report$EPR0
   
-  # Need to adjust for spawn_time_frac!
   report$N0 <- apply(report$NPR_unfished * report$R0_annual, 1, sum)
   report$B0 <- apply(report$NPR_unfished * report$R0_annual * data$wt[1:data$n_y, ], 1, sum)
 
   lmid <- obj$env$data$lbinmid
   nlbin <- length(lmid)
   
-  #if (age_only_model) {
-  #  report$vul_len <- matrix(NA_real_, nlbin, data$nsel_block)
-  #  report$ivul_len <- matrix(NA_real_, nlbin, dim(report$ivul)[3])
-  #  
-  #  report$MLpred <- array(NA_real_, dim(report$F))
-  #  report$CALpred <- array(NA_real_, dim(report$CALpred))
-  #  report$IALpred <- array(NA_real_, dim(report$IALpred))
-  #} else {
-  #  report$vul_len <- get_vul_len(report, data$vul_type, lmid, data$Linf)
-  #  report$ivul_len <- get_ivul_len(report, data$ivul_type, lmid, data$Linf)
-  #}
-  if (dynamic_SSB0) report$dynamic_SSB0 <- RCM_dynamic_SSB0(obj, par)
+  spawn_time_frac <- data$spawn_time_frac
+  if (spawn_time_frac > 0) report$E[length(report$E)] <- NA
+  if (dynamic_SSB0) {
+    report$dynamic_SSB0 <- RCM_dynamic_SSB0(obj, par)
+    if (spawn_time_frac > 0) report$dynamic_SSB0[length(report$dynamic_SSB0)] <- NA
+  }
   
   if (data$comp_like == "mvlogistic") {
     
