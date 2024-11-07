@@ -32,7 +32,11 @@ RCM2MOM <- function(RCModel) {
   slot_intersect <- intersect(slotNames("MOM"), slotNames("OM"))
   for(i in slot_intersect) slot(MOM, i) <- slot(RCModel@OM, i)
   
-  report <- RCModel@Misc
+  if (.hasSlot(RCModel, "report")) {
+    report <- RCModel@report
+  } else {
+    report <- RCModel@Misc
+  }
   if (length(report) == 1) report <- lapply(1:MOM@nsim, function(...) RCModel@Misc[[1]])
   cpars <- lapply(1:nf, function(f) {
     cp <- RCModel@OM@cpars
@@ -51,9 +55,9 @@ RCM2MOM <- function(RCModel) {
       aperm(c(2, 1, 3))
     
     if (!is.null(cp$SLarray)) {
-      cp$SLarray <- lapply(report, make_SL, sel_block = RCModel@data@sel_block) %>% 
+      cp$SLarray <- lapply(report, make_SL, sel_block = RCModel@data@sel_block, f = f) %>% 
         lapply(expand_V_matrix, nyears = RCModel@OM@nyears, proyears = RCModel@OM@proyears) %>% 
-        simplify2array() %>% aperm(c(3, 1, 2))
+        simplify2array() %>% aperm(3:1)
     }
     
     if (!is.null(cp$Data)) {

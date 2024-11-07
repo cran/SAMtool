@@ -12,6 +12,7 @@ Type RCM(objective_function<Type> *obj) {
 
   DATA_MATRIX(C_hist);    // Total catch by year and fleet
   DATA_VECTOR(C_eq);      // Equilibrium catch by fleet
+  DATA_ARRAY(C_wt);       // Catch weight at age
   DATA_MATRIX(sigma_C);   // Standard deviation of catch
   DATA_VECTOR(sigma_Ceq); // Standard deviation of equilibrium catch
 
@@ -22,8 +23,9 @@ Type RCM(objective_function<Type> *obj) {
   DATA_INTEGER(nll_C);    // Indicates whether there is a likelihood for the catch. TRUE when condition = 'catch' or 'effort' with nfleet > 1
 
   DATA_MATRIX(I_hist);    // Index by year and survey
+  DATA_ARRAY(I_wt);       // Index weight at age
   DATA_MATRIX(sigma_I);   // Standard deviation of index by year and survey
-
+  
   DATA_ARRAY(CAA_hist);   // Catch-at-age proportions by year, age, fleet
   DATA_MATRIX(CAA_n);     // Annual samples in CAA by year and fleet
 
@@ -53,7 +55,7 @@ Type RCM(objective_function<Type> *obj) {
   DATA_MATRIX(len_age);   // Length-at-age (n_y + 1, n_age)
   DATA_SCALAR(Linf);      // Linf
   DATA_MATRIX(SD_LAA);    // Length-at-age SD (n_y, n_age)
-  DATA_MATRIX(wt);        // Weight-at-age (n_y + 1, n_age)
+  DATA_MATRIX(wt);        // Stock weight-at-age (n_y + 1, n_age)
   DATA_MATRIX(mat);       // Maturity-at-age (n_y + 1, n_age) - only for matching survey selectivity to SSB
   DATA_MATRIX(fec);       // Fecundity-at-age (n_y + 1, n_age) - product of maturity and spawning output
 
@@ -61,7 +63,7 @@ Type RCM(objective_function<Type> *obj) {
   DATA_IVECTOR(ivul_type); // Same but for surveys, but can also mirror to B (-4), SSB (-3), or fleet (>0)
   DATA_IVECTOR(abs_I);    // Boolean, whether index is an absolute (fix q = 1) or relative terms (estimate q)
   DATA_IVECTOR(I_units);  // Boolean, whether index is biomass based (= 1) or abundance-based (0)
-  DATA_VECTOR(I_delta);   // Numeric, timing of survey within year (0-1, -1 for mean abundance with (1 - exp(-Z))/Z
+  DATA_MATRIX(I_delta);   // Numeric, timing of survey within year (0-1, -1 for mean abundance with (1 - exp(-Z))/Z
 
   DATA_MATRIX(age_error); // Ageing error matrix
 
@@ -93,6 +95,7 @@ Type RCM(objective_function<Type> *obj) {
   DATA_SCALAR(spawn_time_frac);    // Fraction of year when spawning occurs for calculating spawning biomass
   DATA_IVECTOR(est_q);             // Whether to estimate index q (TRUE), otherwise solved analytically (FALSE)
   DATA_VECTOR(pbc_recdev);          // Proportion of bias correction to apply to log_rec_dev
+  DATA_VECTOR(pbc_early_recdev);    // Proportion of bias correction to apply to log_early_rec_dev
   
   PARAMETER(R0x);                       // Unfished recruitment
   PARAMETER(transformed_h);             // Steepness
@@ -299,10 +302,10 @@ Type RCM(objective_function<Type> *obj) {
     } else {
       R_early(a-1) = R_eq;
       if(est_early_rec_dev(a-1)) {
-        Rec_dev_early(a-1) = exp(log_early_rec_dev(a-1) - 0.5 * tau * tau);
+        Rec_dev_early(a-1) = exp(log_early_rec_dev(a-1) - 0.5 * pbc_early_recdev(a-1) * tau * tau);
         SIMULATE if(sim_process_error) {
           log_early_rec_dev_sim(a-1) = rnorm(log_early_rec_dev(a-1), tau);
-          Rec_dev_early(a-1) = exp(log_early_rec_dev_sim(a-1) - 0.5 * tau * tau);
+          Rec_dev_early(a-1) = exp(log_early_rec_dev_sim(a-1) - 0.5 * pbc_early_recdev(a-1) * tau * tau);
         }
         R_early(a-1) *= Rec_dev_early(a-1);
       }
@@ -312,8 +315,8 @@ Type RCM(objective_function<Type> *obj) {
     Type Z_eq = M(0,a);
     for(int ff=0;ff<nfleet;ff++) Z_eq += vul(0,a,ff) * F_equilibrium(ff);
     for(int ff=0;ff<nfleet;ff++) {
-      C_eq_pred(ff) += vul(0,a,ff) * F_equilibrium(ff) * wt(0,a) * N(0,a) * (1 - exp(-Z_eq)) / Z_eq;
-      VB(0,ff) += N(0,a) * wt(0,a) * vul(0,a,ff);
+      C_eq_pred(ff) += vul(0,a,ff) * F_equilibrium(ff) * C_wt(0,a,ff) * N(0,a) * (1 - exp(-Z_eq)) / Z_eq;
+      VB(0,ff) += N(0,a) * C_wt(0,a,ff) * vul(0,a,ff);
     }
     
     B(0) += N(0,a) * wt(0,a);
@@ -323,7 +326,7 @@ Type RCM(objective_function<Type> *obj) {
   for(int y=0;y<n_y;y++) {
     // Calculate this year's fleet F
     if(condition(0) == 1) { // all will be catch2
-      F.row(y) = Newton_F(C_hist, N, M, wt, VB, vul, max_F, y, n_age, nfleet, n_itF, penalty);
+      F.row(y) = Newton_F(C_hist, N, M, C_wt, VB, vul, max_F, y, n_age, nfleet, n_itF, penalty);
     } else {
       for(int ff=0;ff<nfleet;ff++) {
         if(condition(ff) == 0) { // catch
@@ -366,7 +369,7 @@ Type RCM(objective_function<Type> *obj) {
       
       // Add age-zero to the total biomass (other age classes calculated in previous year)
       B(y) += N(y,0) * wt(y,0);
-      for(int ff=0;ff<nfleet;ff++) VB(y,ff) += vul(y,0,ff) * N(y,0) * wt(y,0);
+      for(int ff=0;ff<nfleet;ff++) VB(y,ff) += vul(y,0,ff) * N(y,0) * C_wt(y,0,ff);
     }
     
     // Calculate this year's CAA, catch, CAL, mean size, then next year's abundance
@@ -374,7 +377,7 @@ Type RCM(objective_function<Type> *obj) {
       for(int ff=0;ff<nfleet;ff++) {
         CAAtrue(y,a,ff) = vul(y,a,ff) * F(y,ff) * N(y,a) * (1 - exp(-Z(y,a))) / Z(y,a);
         CN(y,ff) += CAAtrue(y,a,ff);
-        Cpred(y,ff) += CAAtrue(y,a,ff) * wt(y,a);
+        Cpred(y,ff) += CAAtrue(y,a,ff) * C_wt(y,a,ff);
         for(int aa=0;aa<n_age;aa++) CAApred(y,aa,ff) += CAAtrue(y,a,ff) * age_error(a,aa); // a = true, aa = observed ages
         
         if (CAL_n.col(ff).sum() > 0 || CAL_hist.col(ff).sum() > 0) {
@@ -401,7 +404,7 @@ Type RCM(objective_function<Type> *obj) {
     // Calculate next year's biomass excluding age zero
     for(int a=1;a<n_age;a++) {
       B(y+1) += N(y+1,a) * wt(y+1,a);
-      for(int ff=0;ff<nfleet;ff++) VB(y+1,ff) += vul(y+1,a,ff) * N(y+1,a) * wt(y+1,a);
+      for(int ff=0;ff<nfleet;ff++) VB(y+1,ff) += vul(y+1,a,ff) * N(y+1,a) * C_wt(y+1,a,ff);
     }
   }
   
@@ -419,7 +422,7 @@ Type RCM(objective_function<Type> *obj) {
   }
   N(n_y,0) = R(n_y);
   B(n_y) += N(n_y,0) * wt(n_y,0);
-  for(int ff=0;ff<nfleet;ff++) VB(n_y,ff) += vul(n_y,0,ff) * N(n_y,0) * wt(n_y,0);
+  for(int ff=0;ff<nfleet;ff++) VB(n_y,ff) += vul(n_y,0,ff) * N(n_y,0) * C_wt(n_y,0,ff);
 
   // Calculate for surveys: q, selectivity, and age/length comps
   vector<Type> iLFS(nsurvey);
@@ -446,17 +449,17 @@ Type RCM(objective_function<Type> *obj) {
   for(int sur=0;sur<nsurvey;sur++) {
     for(int y=0;y<n_y;y++) {
       for(int a=0;a<n_age;a++) {
-        if (I_delta(sur) < 0) {
+        if (I_delta(y,sur) < 0) {
           IAAtrue(y,a,sur) = ivul(y,a,sur) * N(y,a) * (1 - exp(-Z(y,a)))/Z(y,a);
         } else {
-          IAAtrue(y,a,sur) = ivul(y,a,sur) * N(y,a) * exp(-I_delta(sur) * Z(y,a));
+          IAAtrue(y,a,sur) = ivul(y,a,sur) * N(y,a) * exp(-I_delta(y,sur) * Z(y,a));
         }
         
         IN(y,sur) += IAAtrue(y,a,sur);
 
         for(int aa=0;aa<n_age;aa++) IAApred(y,aa,sur) += IAAtrue(y,a,sur) * age_error(a,aa);
 
-        if(I_units(sur)) Itot(y,sur) += IAAtrue(y,a,sur) * wt(y,a); // Biomass vulnerable to survey
+        if(I_units(sur)) Itot(y,sur) += IAAtrue(y,a,sur) * I_wt(y,a,sur); // Biomass vulnerable to survey
         if(IAL_n.col(sur).sum() > 0) { // Predict survey length comps if there are data
           for(int len=0;len<nlbin;len++) IALpred(y,len,sur) += IAAtrue(y,a,sur) * PLA(y)(a,len);
         }
@@ -613,7 +616,6 @@ Type RCM(objective_function<Type> *obj) {
       }
     }
   }
-
   Type nll = nll_fleet.sum() + nll_index.sum();
   nll += nll_log_rec_dev + penalty + prior;
 

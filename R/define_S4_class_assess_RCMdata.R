@@ -215,6 +215,7 @@ if (getRversion() >= "2.15.1") {
 #' If not provided, the default is 0.01. Not used if `RCM(condition = "catch2")`.
 #' @slot Ehist A vector of historical effort, should be of length `OM@@nyears`, or if there are multiple fleets: 
 #' a matrix of `OM@@nyears` rows and `nfleet` columns. See also slot `E_eq`).
+#' @slot C_wt Optional weight at age for the catch `Chist`. Array with dimension `[OM@@nyears+1, OM@@maxage+1, nfleet]`.
 #' @slot CAA Fishery age composition matrix with `nyears` rows and `OM@@maxage+1` columns, or if multiple fleets: 
 #' an array with dimension: `nyears, OM@@maxage+1, nfleet`. Enter `NA` for years without any data. 
 #' Raw numbers will be converted to annual proportions (see slot `CAA_ESS` for sample sizes).
@@ -239,6 +240,7 @@ if (getRversion() >= "2.15.1") {
 #' a matrix of `OM@@nyears` rows and `nsurvey` columns.
 #' @slot I_sd A vector or matrix of standard deviations (lognormal distribution) for the indices corresponding to the entries in `Index`.
 #' Same dimension as `Index`. If not provided, this function will use values from `OM@@Iobs`.
+#' @slot I_wt Optional weight at age for the index `Index`. Array with dimension `[OM@@nyears, OM@@maxage+1, nsurvey]`.
 #' @slot IAA Index age composition data, an array of dimension `nyears, maxage+1, nsurvey`.
 #' Raw numbers will be converted to annual proportions (see `IAA_ESS` for sample sizes).
 #' @slot IAA_ESS Annual sample size (for the multinomial distribution) of the index age comps. 
@@ -259,7 +261,7 @@ if (getRversion() >= "2.15.1") {
 #' otherwise use 0 (default) to estimate q.
 #' @slot I_units An integer vector of length `nsurvey` to indicate whether indices are biomass based (1) or abundance-based (0). By default, all are biomass-based.
 #' @slot I_delta A vector of length `nsurvey` to indicate the timing of the indices within each time step (0-1, for example 0.5 is the midpoint of the year). By default, zero is used.
-#' Use -1 if the survey operates continuously, the availability would be `N * (1 - exp(-Z))/Z`.
+#' Can also be a matrix by `nyears, nsurvey`. Use -1 if the survey operates continuously, the availability would be `N * (1 - exp(-Z))/Z`.
 #' @slot age_error A square matrix of `maxage + 1` rows and columns to specify ageing error. The `aa`-th column assigns a proportion of animals of 
 #' true age `aa` to observed age `a` in the `a`-th row. Thus, all rows should sum to 1. Default is an identity matrix (no ageing error).
 #' @slot sel_block For time-varying fleet selectivity (in time blocks), a integer matrix of `nyears` rows and `nfleet` columns to assign a selectivity 
@@ -271,13 +273,13 @@ if (getRversion() >= "2.15.1") {
 #' @author Q. Huynh
 #' @export RCMdata
 #' @exportClass RCMdata
-RCMdata <- setClass("RCMdata", slots = c(Chist = "vectormatrix", C_sd = "vectormatrix", Ehist = "vectormatrix", 
+RCMdata <- setClass("RCMdata", slots = c(Chist = "vectormatrix", C_sd = "vectormatrix", C_wt = "array", Ehist = "vectormatrix", 
                                          CAA = "array", CAA_ESS = "vectormatrix", 
                                          CAL = "array", CAL_ESS = "vectormatrix", length_bin = "vector", 
                                          MS = "vectormatrix", MS_type = "character", MS_cv = "vectormatrix",
-                                         Index = "vectormatrix", I_sd = "vectormatrix", 
+                                         Index = "vectormatrix", I_sd = "vectormatrix", I_wt = "array",
                                          IAA = "array", IAA_ESS = "vectormatrix", IAL = "array", IAL_ESS = "vectormatrix",
                                          C_eq = "vector", C_eq_sd = "vector", E_eq = "vector",
-                                         abs_I = "vector", I_units = "vector", I_delta = "vector", age_error = "matrix", sel_block = "matrix",
+                                         abs_I = "vector", I_units = "vectormatrix", I_delta = "vector", age_error = "matrix", sel_block = "matrix",
                                          Misc = "list"))
 

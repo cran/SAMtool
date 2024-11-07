@@ -29,6 +29,19 @@ RCM_int <- function(OM, RCMdata, condition = "catch", selectivity = "logistic", 
   nfleet <- RCMdata@Misc$nfleet
   nsurvey <- RCMdata@Misc$nsurvey
   
+  if (!silent) {
+    message("Passing user arguments (LWT, map, start, prior, etc.) to RCMdata@Misc..")
+  }
+  RCMdata@Misc$LWT <- make_LWT(LWT, nfleet, nsurvey)
+  RCMdata@Misc$map <- map
+  RCMdata@Misc$start <- start
+  RCMdata@Misc$prior <- prior
+  RCMdata@Misc$selectivity <- selectivity
+  RCMdata@Misc$s_selectivity <- s_selectivity
+  RCMdata@Misc$comp_like <- comp_like
+  RCMdata@Misc$max_F <- max_F
+  if (length(dots)) RCMdata@Misc <- c(RCMdata@Misc, dots)
+  
   OM@maxF <- max_F
   if (!silent) message("Maximum F in RCM will be ", max_F, ". OM@maxF is also updated.\n\n")
   
@@ -55,9 +68,6 @@ RCM_int <- function(OM, RCMdata, condition = "catch", selectivity = "logistic", 
     s_sel <- int_s_sel(NULL, silent = silent)
   }
   
-  # Likelihood weights
-  RCMdata@Misc$LWT <- make_LWT(LWT, nfleet, nsurvey)
-  
   # SR
   if (!silent) {
     message(switch(OM@SRrel,
@@ -67,7 +77,7 @@ RCM_int <- function(OM, RCMdata, condition = "catch", selectivity = "logistic", 
   }
   
   # Generate priors
-  prior <- make_prior(prior, nsurvey, OM@SRrel, dots, msg = !silent)
+  prior_rcm <- make_prior(prior, nsurvey, OM@SRrel, dots, msg = !silent)
   
   # Test for identical sims
   par_identical_sims <- par_identical_sims_fn(StockPars, FleetPars, RCMdata, dots)
@@ -78,7 +88,7 @@ RCM_int <- function(OM, RCMdata, condition = "catch", selectivity = "logistic", 
     if (!silent) message_info("All ", nsim, " replicates are identical. Fitting one model...")
     
     mean_fit_output <- RCM_est(RCMdata = RCMdata, selectivity = sel, s_selectivity = s_sel,
-                               LWT = RCMdata@Misc$LWT, comp_like = comp_like, prior = prior, 
+                               LWT = RCMdata@Misc$LWT, comp_like = comp_like, prior = prior_rcm, 
                                max_F = max_F, integrate = integrate, StockPars = StockPars,
                                FleetPars = FleetPars, mean_fit = TRUE, control = control,
                                start = start, map = map, dots = dots)
@@ -113,7 +123,7 @@ RCM_int <- function(OM, RCMdata, condition = "catch", selectivity = "logistic", 
     if (cores > 1 && !snowfall::sfIsRunning()) MSEtool::setup(as.integer(cores))
     
     mod <- pblapply(1:nsim, RCM_est, RCMdata = RCMdata, selectivity = sel, s_selectivity = s_sel,
-                    LWT = RCMdata@Misc$LWT, comp_like = comp_like, prior = prior, 
+                    LWT = RCMdata@Misc$LWT, comp_like = comp_like, prior = prior_rcm, 
                     max_F = max_F, integrate = integrate, StockPars = StockPars,
                     FleetPars = FleetPars, control = control, start = start, map = map, dots = dots,
                     cl = if (snowfall::sfIsRunning()) snowfall::sfGetCluster() else NULL)
@@ -121,7 +131,7 @@ RCM_int <- function(OM, RCMdata, condition = "catch", selectivity = "logistic", 
     if (mean_fit) { ### Fit to life history means if mean_fit = TRUE
       if (!silent) message_info("Generating additional model fit from mean values of parameters in the operating model...\n")
       mean_fit_output <- RCM_est(RCMdata = RCMdata, selectivity = sel, s_selectivity = s_sel,
-                                 LWT = RCMdata@Misc$LWT, comp_like = comp_like, prior = prior, 
+                                 LWT = RCMdata@Misc$LWT, comp_like = comp_like, prior = prior_rcm, 
                                  max_F = max_F, integrate = integrate, StockPars = StockPars,
                                  FleetPars = FleetPars, mean_fit = TRUE, control = control, 
                                  start = start, map = map, dots = dots)
@@ -184,10 +194,9 @@ RCM_int <- function(OM, RCMdata, condition = "catch", selectivity = "logistic", 
   
   ### Get parameters to update OM
   obj_data <- mod[[1]]$obj$env$data
-  newOM <- RCM_update_OM(OM, res, StockPars, obj_data, maxage, nyears, proyears, nsim, prior, silent)
+  newOM <- RCM_update_OM(OM, res, StockPars, obj_data, maxage, nyears, proyears, nsim, prior_rcm, silent)
   
   ### Output S4 object
-  RCMdata@Misc$prior <- prior
   output <- new("RCModel", 
                 OM = MSEtool::SubCpars(newOM$OM, keep), 
                 SSB = newOM$RCM_val$SSB[keep, , drop = FALSE], 
@@ -199,10 +208,10 @@ RCM_int <- function(OM, RCMdata, condition = "catch", selectivity = "logistic", 
   if (!is.null(newOM$RCM_val$CAL)) output@CAL = newOM$RCM_val$CAL[keep, , , , drop = FALSE] 
   
   if (length(res) > 1) {
-    output@Misc <- res[keep]
+    output@report <- res[keep]
     output@config <- list(drop_sim = which(!keep))
   } else {
-    output@Misc <- res
+    output@report <- res
     output@config <- list(drop_sim = integer(0))
   }
   
@@ -245,7 +254,7 @@ RCM_int <- function(OM, RCMdata, condition = "catch", selectivity = "logistic", 
       
       # Cannot accommodate indices mirrored to fleet when nfleet > 1 and fleet has time-varying sel
       real_Data@AddIndType <- vapply(s_sel, process_AddIndType, numeric(1), nfleet = nfleet)
-      real_Data@AddIndV <- lapply(1:nsurvey, process_AddIndV, Misc = output@Misc, s_sel = s_sel,
+      real_Data@AddIndV <- lapply(1:nsurvey, process_AddIndV, report = output@report, s_sel = s_sel,
                                   n_age = maxage + 1, nfleet = nfleet, nyears = nyears) %>%
         simplify2array() %>% aperm(c(1, 3, 2))
       real_Data@AddIunits <- RCMdata@I_units
@@ -470,7 +479,7 @@ RCM_update_OM <- function(OM, report, StockPars = NULL, obj_data, maxage, nyears
   out$procsd <- vapply(report, getElement, numeric(1), "tau")
   
   make_Perr <- function(x, obj_data) {
-    bias_corr <- ifelse(obj_data$est_rec_dev, exp(-0.5 * x$tau^2), 1)
+    bias_corr <- ifelse(obj_data$est_rec_dev, exp(-0.5 * obj_data$pbc_recdev * x$tau^2), 1)
     res <- exp(x$log_rec_dev) * bias_corr
     res[1] <- res[1] * x$R_eq/x$R0
     return(res)
@@ -482,7 +491,7 @@ RCM_update_OM <- function(OM, report, StockPars = NULL, obj_data, maxage, nyears
     NPR_unfished <- calc_NPR(exp(-M), length(M), obj_data$plusgroup)
     #NPR_unfished <- x$NPR_unfished[1, ]
     res <- x$R_eq * x$NPR_equilibrium / x$R0 / NPR_unfished
-    bias_corr <- ifelse(obj_data$est_early_rec_dev, exp(-0.5 * x$tau^2), 1)
+    bias_corr <- ifelse(obj_data$est_early_rec_dev, exp(-0.5 * obj_data$pbc_early_recdev * x$tau^2), 1)
     early_dev <- exp(x$log_early_rec_dev) * bias_corr
     out <- res[-1] * early_dev
     return(rev(out))
@@ -568,13 +577,13 @@ process_AddIndType <- function(s_sel, nfleet) {
   }
 }
 
-process_AddIndV <- function(sur, Misc, s_sel, n_age, nfleet, nyears) { # Return a matrix of nsim x nages
+process_AddIndV <- function(sur, report, s_sel, n_age, nfleet, nyears) { # Return a matrix of nsim x nages
   sel_B_SB <- s_sel[sur] %in% c(-3, -4) # -4 = B, -3 = SSB, coordinate with process_AddIndType() and Data@AddIndType
   sel_VB <- s_sel[sur] == 1 && nfleet == 1
   if (sel_B_SB || sel_VB) { # single-fleet VB
-    out <- matrix(1, length(Misc), n_age)
+    out <- matrix(1, length(report), n_age)
   } else { # custom sel or multi-fleet
-    out <- do.call(rbind, lapply(Misc, function(x) x$ivul[nyears, , sur]))
+    out <- do.call(rbind, lapply(report, function(x) x$ivul[nyears, , sur]))
   }
   return(out)
 }
@@ -867,11 +876,11 @@ expand_V_matrix <- function(x, nyears, proyears) {
   rbind(x, y)
 }
 
-make_SL <- function(x, sel_block) {
+make_SL <- function(x, sel_block, f = 1:ncol(x$F)) {
   apicalF <- x$F
   apicalF[apicalF < 1e-4] <- 1e-4
   
-  F_at_length <- lapply(1:ncol(apicalF), function(xx) {
+  F_at_length <- lapply(f, function(xx) {
     sel_block_f <- sel_block[, xx]
     apicalF[, xx] * t(x$vul_len[, sel_block_f])
   }) %>% 

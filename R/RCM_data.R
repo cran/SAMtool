@@ -441,6 +441,20 @@ check_RCMdata <- function(RCMdata, OM, condition = "catch", silent = FALSE) {
   } else {
     RCMdata@C_sd <- matrix(0.01, RCMdata@Misc$nyears, RCMdata@Misc$nfleet)
   }
+  
+  # C_wt
+  if (.hasSlot(RCMdata, "C_wt") && length(RCMdata@C_wt)) {
+    if (is.matrix(RCMdata@C_wt)) {
+      RCMdata@C_wt <- array(RCMdata@C_wt, c(RCMdata@Misc$nyears+1, RCMdata@Misc$maxage + 1, RCMdata@Misc$nfleet))
+    }
+    if (is.array(RCMdata@C_wt)) {
+      if (!all(dim(RCMdata@C_wt) == c(RCMdata@Misc$nyears+1, RCMdata@Misc$maxage + 1, RCMdata@Misc$nfleet))) {
+        stop("C_wt (catch weight at age) needs to be an array of dimension [nyears+1, maxage+1, nfleet]")
+      }
+    } else {
+      stop("C_wt (catch weight at age) needs to be an array of dimension [nyears+1, maxage+1, nfleet]")
+    }
+  }
 
   # Indices
   if (sum(RCMdata@Index, na.rm = TRUE)) {
@@ -469,6 +483,20 @@ check_RCMdata <- function(RCMdata, OM, condition = "catch", silent = FALSE) {
       }
     } else {
       stop("No standard errors were found for the index.", call. = FALSE)
+    }
+    
+    # I_wt
+    if (.hasSlot(RCMdata, "I_wt") && length(RCMdata@I_wt)) {
+      if (is.matrix(RCMdata@I_wt)) {
+        RCMdata@I_wt <- array(RCMdata@I_wt, c(RCMdata@Misc$nyears, RCMdata@Misc$maxage + 1, RCMdata@Misc$nsurvey))
+      }
+      if (is.array(RCMdata@I_wt)) {
+        if (!all(dim(RCMdata@I_wt) == c(RCMdata@Misc$nyears, RCMdata@Misc$maxage + 1, RCMdata@Misc$nsurvey))) {
+          stop("I_wt (index weight at age) needs to be an array of dimension [nyears, maxage+1, nsurvey]")
+        }
+      } else {
+        stop("I_wt (index weight at age) needs to be an array of dimension [nyears, maxage+1, nsurvey]")
+      }
     }
   } else {
     RCMdata@Misc$nsurvey <- 0
@@ -694,7 +722,11 @@ check_RCMdata <- function(RCMdata, OM, condition = "catch", silent = FALSE) {
     if (!is.null(StockPars)) {
       RCMdata@Misc$lbin <- StockPars$CAL_bins
       RCMdata@Misc$lbinmid <- StockPars$CAL_binsmid
+    } else {
+      RCMdata@Misc$lbin <- c(0, 1)
+      RCMdata@Misc$lbinmid <- c(0, 0.5)
     }
+    
     RCMdata@Misc$nlbin <- length(RCMdata@Misc$lbinmid)
     RCMdata@CAL <- array(0, c(RCMdata@Misc$nyears, RCMdata@Misc$nlbin, RCMdata@Misc$nfleet))
     RCMdata@IAL <- array(0, c(RCMdata@Misc$nyears, RCMdata@Misc$nlbin, ncol(RCMdata@Index)))
@@ -752,11 +784,23 @@ check_RCMdata <- function(RCMdata, OM, condition = "catch", silent = FALSE) {
   # Index timing
   if (.hasSlot(RCMdata, "I_delta")) {
     if (RCMdata@Misc$nsurvey > 0) {
-      if (!length(RCMdata@I_delta)) RCMdata@I_delta <- rep(0, RCMdata@Misc$nsurvey)
-      if (length(RCMdata@I_delta) != RCMdata@Misc$nsurvey) stop("I_delta should be length ", RCMdata@Misc$nsurvey, call. = FALSE)
+      
+      if (!is.matrix(RCMdata@I_delta)) {
+        if (!length(RCMdata@I_delta)) RCMdata@I_delta <- rep(0, RCMdata@Misc$nsurvey)
+        if (length(RCMdata@I_delta) != RCMdata@Misc$nsurvey) stop("I_delta should be length ", RCMdata@Misc$nsurvey, call. = FALSE)
+        RCMdata@I_delta <- matrix(RCMdata@I_delta, RCMdata@Misc$nyears, RCMdata@Misc$nsurvey, byrow = TRUE)
+      }
+      RCMdata@I_delta <- matrix(RCMdata@I_delta, RCMdata@Misc$nyears, RCMdata@Misc$nsurvey, byrow = TRUE)
+      if (nrow(RCMdata@I_delta) != RCMdata@Misc$nyears) {
+        stop(paste("I_delta should be a matrix of", RCMdata@Misc$nyears, "rows."), call. = FALSE)
+      }
+      if (ncol(RCMdata@I_delta) != RCMdata@Misc$nsurvey) {
+        stop(paste("I_delta should be a matrix of", RCMdata@Misc$nsurvey, "columns."), call. = FALSE)
+      }
+      
       if (any(RCMdata@I_delta > 1)) stop("I_delta should be between 0-1 (or -1 for a continuous survey)", call. = FALSE)
     } else {
-      RCMdata@I_delta <- 0
+      RCMdata@I_delta <- matrix(0, RCMdata@Misc$nyears, 1)
     }
   }
 

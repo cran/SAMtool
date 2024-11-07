@@ -1,7 +1,19 @@
 The latest release of the SAMtool package is available on [CRAN](https://CRAN.R-project.org/package=SAMtool).
 
+## SAMtool 1.8.0
+- Update error check for free selectivity parameters in RCM.
+- Clean up RCM reporting of data fits (introduced in 1.6.5)
+- Plot index SD in RCM
+- Adjust rec devs for partial bias correction when converting RCM to OM (introduced in 1.7.0)
+- Fix dimension of SLarray in `RCM2MOM` (introduced in 1.6.5)
+- Move RCM reporting from slot `@Misc` to new slot `@report`. `@Misc` is now available for users to record information from OM building depending on the case study.
+- RCM can fit to list of biological inputs `StockPars` instead of an operating model with `RCM(StockPars, RCMdata)`. See `StockPars` section in `help("RCM")`.
+- Add partial bias correction to the initial abundance at age vector in `RCM` with argument `pbc_early_recdev`. The bias correction from logspace to normal space is `exp(log_early_rec_dev[a] - 0.5 * pbc_recdev[a] * sigmaR^2)` if the year-specific rec dev is estimated.
+- `RCMdata@I_delta` (survey timing within time step) can now be a matrix by year and survey.
+- Fix typo in `Shortcut` function
+
 ## SAMtool 1.7.0
-- Add argument to adjust annual recruitment deviation bias correction in `RCM` in argument `pbc_recdev`. The bias correction from logspace to normal space is `exp(log_rec_dev[y] - 0.5 * bc_recdev[y] * sigmaR^2)` if the year-specific rec dev is estimated.
+- Add argument to adjust annual recruitment deviation bias correction in `RCM` in argument `pbc_recdev`. The bias correction from logspace to normal space is `exp(log_rec_dev[y] - 0.5 * pbc_recdev[y] * sigmaR^2)` if the year-specific rec dev is estimated.
 - Add `RCMdata@I_delta` slot to specify survey timing (0-1) within year. Default assumption is zero is used which is consistent with previous versions.
 
 ## SAMtool 1.6.5
