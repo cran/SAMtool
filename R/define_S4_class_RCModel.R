@@ -491,11 +491,37 @@ setMethod("plot", signature(x = "RCModel", y = "missing"),
               # Model output
               sel_matplot <- rmd_matplot(x = "Age", y = "matrix(report$vul[nyears, , ], max_age + 1, nfleet)", col = "rich.colors(nfleet)",
                                          xlab = "Age", ylab = "Selectivity", legend.lab = "f_name",
-                                         fig.cap = "Terminal year selectivity by fleet.", header = "### Output \n")
+                                         fig.cap = "Terminal year selectivity by fleet.", header = "### Output {.tabset}\n\n#### Fishery\n")
+              
+              # Plot all selectivity patterns
+              if (max(RCMdata@sel_block) > nfleet) {
+                sel_plot_fleet <- lapply(1:nfleet, rmd_RCM_sel_singlefit, f_name = f_name)
+                sel_plot_fleet <- do.call(c, sel_plot_fleet)
+              } else {
+                sel_plot_fleet <- NULL
+              }
 
               F_matplot <- rmd_matplot(x = "Year", y = "report$F", col = "rich.colors(nfleet)",
                                        xlab = "Year", ylab = "Fishing Mortality (F)", legend.lab = "f_name",
                                        fig.cap = "Time series of fishing mortality by fleet.")
+              
+              # Survey selectivity
+              if (any(RCMdata@Index > 0, na.rm = TRUE)) {
+                
+                sel_plot_survey <- c(
+                  "#### Survey\n",
+                  rmd_matplot(
+                    x = "Age", 
+                    y = "matrix(report$ivul[nyears, , ], max_age + 1, nsurvey)", 
+                    col = "rich.colors(nsurvey)",
+                    xlab = "Age", ylab = "Index selectivity", legend.lab = "s_name",
+                    fig.cap = "Index selectivity at age."
+                  )
+                )
+                
+              } else {
+                sel_plot_survey <- NULL
+              }
 
               if (length(unique(report$E0)) > 1) {
                 SSB0_eq_plot <- rmd_assess_timeseries("structure(report$E0, names = Year)", 
@@ -519,7 +545,9 @@ setMethod("plot", signature(x = "RCModel", y = "missing"),
                                          fig.cap = "Predicted catch-at-length (summed over all fleets).", bubble_adj = as.character(bubble_adj))
               } else CAL_bubble <- NULL
 
-              ts_output <- c(sel_matplot, F_matplot, rmd_SSB("structure(report$E, names = Yearplusone)"), 
+              ts_output <- c(sel_matplot, sel_plot_fleet, F_matplot, sel_plot_survey,
+                             "#### Abundance\n",
+                             rmd_SSB("structure(report$E, names = Yearplusone)"), 
                              SSB0_eq_plot, SSB_SSB0_plot, 
                              rmd_dynamic_SSB0("structure(report$dynamic_SSB0, names = Yearplusone)"), 
                              rmd_R("structure(report$R, names = Yearplusone)"), 
@@ -600,10 +628,15 @@ compare_RCM <- function(..., compare = FALSE, filename = "compare_RCM", dir = te
   if (!test) stop("Objects provided are not of class RCModel.", call. = FALSE)
   
   # Update scenario
-  if (is.null(scenario$names)) scenario$names <- as.character(substitute(list(...)))[-1]
+  if (is.null(scenario$names)) {
+    sc_names <- as.character(substitute(list(...)))[-1]
+    sc_nchar <- sapply(sc_names, nchar) %>% as.numeric()
+    if (all(sc_nchar > 100)) sc_names <- paste("Model", 1:length(dots))
+    scenario$names <- sc_names
+  }
   if (is.null(scenario$col)) scenario$col <- gplots::rich.colors(length(dots))
   scenario$col_legend <- scenario$col
-
+  
   if (is.null(scenario$lwd)) scenario$lwd <- 1
   if (is.null(scenario$lty)) scenario$lty <- 1
 
@@ -630,12 +663,22 @@ compare_RCM <- function(..., compare = FALSE, filename = "compare_RCM", dir = te
 
   nsim <- length(report_list)
   RCMdata <- dots[[1]]@data
-
-  max_age <- dots[[1]]@OM@maxage
-  if (is.null(Age)) Age <- 0:max_age
-  nyears <- dots[[1]]@OM@nyears
-  if (is.null(Year)) Year <- (dots[[1]]@OM@CurrentYr - nyears + 1):dots[[1]]@OM@CurrentYr
+  
+  if (is.null(Age)) {
+    max_age <- dots[[1]]@OM@maxage
+    if (!length(max_age)) stop("OM@maxage not found. Specify age classes in 'Age' argument.")
+    Age <- 0:max_age
+  }
+  if (is.null(Year)) {
+    nyears <- dots[[1]]@OM@nyears
+    CurrentYr <- dots[[1]]@OM@CurrentYr 
+    if (!length(nyears) || !length(CurrentYr)) {
+      stop("OM@nyears and OM@CurrentYr not found. Specify year vector in 'Year' argument.")
+    }
+    Year <- seq(CurrentYr - nyears + 1, CurrentYr)
+  }
   Yearplusone <- c(Year, max(Year) + 1)
+  nyears <- length(Year)
 
   nfleet <- vapply(dots, function(xx) xx@data@Misc$nfleet, numeric(1)) %>% unique()
   nsurvey <- vapply(dots, function(xx) xx@data@Misc$nsurvey, numeric(1)) %>% unique()

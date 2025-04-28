@@ -1,16 +1,16 @@
-81eeedd396d30f115b203c3c552cef5d *DESCRIPTION
+c0cb46c1ed79d7488dbb4f15d6028d80 *DESCRIPTION
 78b3feab6a0d75fcb67d5845f6f3394b *NAMESPACE
-f1e4d9925bee8905e07cd2ee4c80fb37 *NEWS.md
+292917833eeb911efdf01819642c155d *NEWS.md
 374eb7ac7d21aeba5bd57b46642f7bf7 *R/Ancillary_Indicators.R
 af73c69f697fd4c0854ebfe1f436cf03 *R/HCRs.R
 b51f0265d484b8e13479e16e369e9494 *R/Misc_fun.R
-69499ebb29e7b3e8879f244a23c5333e *R/RCM2.R
+23d08e8e881930147b9dff9c11393def *R/RCM2.R
 73e583e48033b75e6121fb700f153056 *R/RCM2MOM.R
 ef7932e2c9c38aec425db9914d74fc2f *R/RCM_assess.R
 18b5db7c89a0f6f48906b10bd14f3072 *R/RCM_data.R
 d6ef7cc0f135b22a992c4f6059ec745c *R/RCM_est.R
-3a4779d4eafd727a8ea0b40f3e2f0e61 *R/RCM_int.R
-21528e53a9f1e95eaf89f0e6b82c3806 *R/RCM_rmd.R
+ea6513b71e785740ce022add14ad703a *R/RCM_int.R
+f8db0962ce2135fd0dbf309b6ab285a0 *R/RCM_rmd.R
 dcbad76bee6c30a87d59c2dff64dccd3 *R/SAMtool-package.R
 326830e232dc4e3061e4e8efa97b3e4b *R/assess_DD.R
 ea4f017f5783c27cee06f52fa6516e52 *R/assess_SCA.R
@@ -20,7 +20,7 @@ d52ea2845c3da784d4139d558db519c5 *R/assess_SCA_ext.R
 313b44e6bb4751941c1d3f31dcc98c75 *R/assess_VPA.R
 fa5abae0125a5b9c7e4cf9da96f46d5f *R/assess_cDD.R
 8bec21671c5a0cf621030eedb3a36f30 *R/assess_shortcut.R
-0a5f534d5a6071436284f1a2ceaec254 *R/define_S4_class_RCModel.R
+d249d66fd978d9bb1e8760fafbcc94af *R/define_S4_class_RCModel.R
 030166dd2d34291664b946a778137a8d *R/define_S4_class_assess_RCMdata.R
 f0119e9c14b9498fe7623458e05730e0 *R/define_S4_class_profile.R
 99d11e0921c24a5a7eee0ae7e5abe231 *R/define_S4_class_project.R
@@ -28,7 +28,7 @@ f0119e9c14b9498fe7623458e05730e0 *R/define_S4_class_profile.R
 2e705d8cacde86215f15df2912411629 *R/define_S4_generic_RCM.R
 cf9a069313057930478333e365a89b66 *R/define_S4_generic_posterior.R
 98ae058d4a052a7ab540ccf4e457d16f *R/define_S4_generic_simulate.R
-2153610f7a3ba1aaec40b12d78f9b7c6 *R/diagnostic.R
+21c3f0acdb7fbf64bbdb8fbfc251f7be *R/diagnostic.R
 b5a8d3144657bb7815ddf2ec45741cb9 *R/document_data.R
 40453d66e80cdef4b7f89cb1c11ae74d *R/interim_MP.R
 a8f5c3f4a23508a3bb95c1ceeed09e8e *R/report_DD_TMB.R
@@ -44,7 +44,7 @@ bf6c50e10fc94c5b8671d47d9759cdb4 *R/report_VPA.R
 b53f71121a73f3d3b68a64b47e326c89 *R/z_MPs.R
 6e4df15936c2847d502945fb67feca94 *R/zzz.R
 9125ef0d85d3036dbaed8f5e51c56d2c *README.md
-b54db8794555342c4feee5fe0b1b8f5b *build/partial.rdb
+cb3b20077bebc5da31fc1b46c657c0ff *build/partial.rdb
 b2c5a7392aa10d7f72ccea10f4a893e6 *data/pcod.rda
 bb1b13a174ffd95d912d08fe58df4f78 *data/swordfish.rda
 c81845d9cb1876d9d6db93e57ea9dccb *inst/include/DD.hpp
@@ -55,7 +55,7 @@ ead12b5dec8076564c00928d42706d60 *inst/include/SCA.hpp
 21053e2a75827ad5cc7149d810ef46ce *inst/include/cDD.hpp
 ca9c60927a9b433c5f1a76f3a2c5b4b1 *inst/include/functions.hpp
 9086698084e8fc14a92c9554e9b37381 *inst/include/ns/ns_DD.hpp
-e81d73588689b4c4430d76d33ceab575 *inst/include/ns/ns_RCM.hpp
+3c3faf759d8cc39bafd89691ec159c91 *inst/include/ns/ns_RCM.hpp
 0a46cb9d039506511554768779ae4e02 *inst/include/ns/ns_SCA.hpp
 bb00d8a02021703036d6c0103e7980da *inst/include/ns/ns_SP.hpp
 bbbfa157d0d4c1964cf44067b26c362c *inst/include/ns/ns_VPA.hpp
