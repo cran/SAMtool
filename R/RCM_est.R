@@ -194,7 +194,7 @@ RCM_est_data <- function(x, RCMdata, selectivity, s_selectivity, LWT = list(), c
     spawn_time_frac = ifelse(is.null(StockPars$spawn_time_frac), 0, StockPars$spawn_time_frac[x]),
     est_q = ifelse(is.na(map$log_q), 0L, 1L),
     pbc_recdev = if (is.null(dots$pbc_recdev)) rep(1, nyears) else dots$pbc_recdev,
-    pbc_early_recdev = if (is.null(dots$pbc_early_recdev)) rep(1, nyears) else dots$pbc_early_recdev
+    pbc_early_recdev = if (is.null(dots$pbc_earlyrecdev)) rep(1, n_age-1) else dots$pbc_earlyrecdev
   )
   
   TMB_data$est_vul <- ifelse(is.na(map$vul_par) | duplicated(map$vul_par), 0, 1) %>%
@@ -537,9 +537,12 @@ RCM_est_params <- function(x, RCMdata, selectivity, s_selectivity, prior = list(
 
 par_identical_sims_fn <- function(StockPars, FleetPars, RCMdata, dots) {
   vector_fn <- function(x) sum(mean(x) - x) == 0
+  CloseToSame <- function(x,y) {
+    diff(x/y) |> abs() |> max() < 0.001
+  }
   array_fn <- function(x) {
     x_mean <- apply(x, 2:length(dim(x)), mean)
-    all(apply(x, 1, identical, x_mean))
+    all(apply(x, 1, CloseToSame, x_mean))
   }
   run_test <- function(x) if (is.null(dim(x))) vector_fn(x) else array_fn(x)
   

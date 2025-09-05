@@ -1,6 +1,6 @@
-c0cb46c1ed79d7488dbb4f15d6028d80 *DESCRIPTION
+718dc43ead2128efb774457a2f8bb0ec *DESCRIPTION
 78b3feab6a0d75fcb67d5845f6f3394b *NAMESPACE
-292917833eeb911efdf01819642c155d *NEWS.md
+dfe9e89787d337c39482fa7c2f0985f3 *NEWS.md
 374eb7ac7d21aeba5bd57b46642f7bf7 *R/Ancillary_Indicators.R
 af73c69f697fd4c0854ebfe1f436cf03 *R/HCRs.R
 b51f0265d484b8e13479e16e369e9494 *R/Misc_fun.R
@@ -8,9 +8,9 @@ b51f0265d484b8e13479e16e369e9494 *R/Misc_fun.R
 73e583e48033b75e6121fb700f153056 *R/RCM2MOM.R
 ef7932e2c9c38aec425db9914d74fc2f *R/RCM_assess.R
 18b5db7c89a0f6f48906b10bd14f3072 *R/RCM_data.R
-d6ef7cc0f135b22a992c4f6059ec745c *R/RCM_est.R
-ea6513b71e785740ce022add14ad703a *R/RCM_int.R
-f8db0962ce2135fd0dbf309b6ab285a0 *R/RCM_rmd.R
+34b1e5582a92cac796043694c394a355 *R/RCM_est.R
+c62e43a8c998c138ad7ff8d2fefd7a2c *R/RCM_int.R
+91e7ff72162698bb0a215c54a68576a7 *R/RCM_rmd.R
 dcbad76bee6c30a87d59c2dff64dccd3 *R/SAMtool-package.R
 326830e232dc4e3061e4e8efa97b3e4b *R/assess_DD.R
 ea4f017f5783c27cee06f52fa6516e52 *R/assess_SCA.R
@@ -20,7 +20,7 @@ d52ea2845c3da784d4139d558db519c5 *R/assess_SCA_ext.R
 313b44e6bb4751941c1d3f31dcc98c75 *R/assess_VPA.R
 fa5abae0125a5b9c7e4cf9da96f46d5f *R/assess_cDD.R
 8bec21671c5a0cf621030eedb3a36f30 *R/assess_shortcut.R
-d249d66fd978d9bb1e8760fafbcc94af *R/define_S4_class_RCModel.R
+601a64a68c8696ab866261922cee5c38 *R/define_S4_class_RCModel.R
 030166dd2d34291664b946a778137a8d *R/define_S4_class_assess_RCMdata.R
 f0119e9c14b9498fe7623458e05730e0 *R/define_S4_class_profile.R
 99d11e0921c24a5a7eee0ae7e5abe231 *R/define_S4_class_project.R
@@ -44,7 +44,7 @@ bf6c50e10fc94c5b8671d47d9759cdb4 *R/report_VPA.R
 b53f71121a73f3d3b68a64b47e326c89 *R/z_MPs.R
 6e4df15936c2847d502945fb67feca94 *R/zzz.R
 9125ef0d85d3036dbaed8f5e51c56d2c *README.md
-cb3b20077bebc5da31fc1b46c657c0ff *build/partial.rdb
+9d40159f50a5fc9949cbfe95a2884126 *build/partial.rdb
 b2c5a7392aa10d7f72ccea10f4a893e6 *data/pcod.rda
 bb1b13a174ffd95d912d08fe58df4f78 *data/swordfish.rda
 c81845d9cb1876d9d6db93e57ea9dccb *inst/include/DD.hpp
