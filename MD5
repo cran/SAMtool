@@ -1,6 +1,6 @@
-e2f70d8d0ffc3246f573f86d42e87a4e *DESCRIPTION
+d692fad05ced43791e6c32d489fff6bd *DESCRIPTION
 78b3feab6a0d75fcb67d5845f6f3394b *NAMESPACE
-f126f3e7f9299cdf7265238745635fa5 *NEWS.md
+984228ebbf95b4edcbde30af6a721ce8 *NEWS.md
 374eb7ac7d21aeba5bd57b46642f7bf7 *R/Ancillary_Indicators.R
 af73c69f697fd4c0854ebfe1f436cf03 *R/HCRs.R
 b51f0265d484b8e13479e16e369e9494 *R/Misc_fun.R
@@ -44,11 +44,11 @@ bf6c50e10fc94c5b8671d47d9759cdb4 *R/report_VPA.R
 b53f71121a73f3d3b68a64b47e326c89 *R/z_MPs.R
 6e4df15936c2847d502945fb67feca94 *R/zzz.R
 9125ef0d85d3036dbaed8f5e51c56d2c *README.md
-9d40159f50a5fc9949cbfe95a2884126 *build/partial.rdb
+d54042561b90aafd8a9a202ea63e1e4b *build/partial.rdb
 b2c5a7392aa10d7f72ccea10f4a893e6 *data/pcod.rda
 bb1b13a174ffd95d912d08fe58df4f78 *data/swordfish.rda
 c81845d9cb1876d9d6db93e57ea9dccb *inst/include/DD.hpp
-de62aa0dfb914a1981d74f7ac05f6b1b *inst/include/RCM.hpp
+3bbc4dbe9f1cbe4087d6bb2f89ef8b20 *inst/include/RCM.hpp
 ead12b5dec8076564c00928d42706d60 *inst/include/SCA.hpp
 452411ae19cb0860fc65323911cab62d *inst/include/SP.hpp
 56063b35de5ef99acd07164144fd990d *inst/include/VPA.hpp
