@@ -415,10 +415,10 @@ setMethod("plot", signature(x = "RCModel", y = "missing"),
               if (data_mean_fit$use_prior[3]) {
                 NatM <- rmd_at_age(age = "Age", "rep(report$Mest, length(Age))", fig.cap = "Natural mortality (time constant).", label = "Natural mortality")
               } else {
-                NatM <- rmd_at_age(age = "Age", "data_mean_fit$M[nyears, ]", fig.cap = "Natural mortality in last historical year.", label = "Natural mortality")
+                NatM <- rmd_at_age(age = "Age", "data_mean_fit$M_data[nyears, ]", fig.cap = "Natural mortality in last historical year.", label = "Natural mortality")
               }
-              if (!data_mean_fit$use_prior[3] && LH_varies_fn(data_mean_fit$M)) {
-                NatM_persp <- rmd_persp_plot(x = "Year", y = "Age", z = "data_mean_fit$M[1:nyears, ]", xlab = "Year", ylab = "Age",
+              if (!data_mean_fit$use_prior[3] && LH_varies_fn(data_mean_fit$M_data)) {
+                NatM_persp <- rmd_persp_plot(x = "Year", y = "Age", z = "data_mean_fit$M_data[1:nyears, ]", xlab = "Year", ylab = "Age",
                                              zlab = "Natural mortality", phi = 35, theta = 45, expand = 0.55, fig.cap = "Annual M-at-age.")
               } else NatM_persp <- NULL
 
@@ -731,7 +731,7 @@ compare_RCM <- function(..., compare = FALSE, filename = "compare_RCM", dir = te
                  "SSB <- do.call(rbind, lapply(report_list, function(x) x$E[1:nyears]))",
                  "SSBMSY <- vapply(Hist, function(x) mean(x@Ref$ReferencePoints$SSBMSY), numeric(1))",
                  "SSB_SSBMSY <- t(SSB/SSBMSY)",
-                 "matplot(Year, SSB_SSBMSY, typ = \"n\", xlab = \"Year\", ylab = expression(SSB/SSB[MSY]), ylim = c(0, 1.1 * max(SSB_SSBMSY)))",
+                 "matplot(Year, SSB_SSBMSY, type = \"n\", xlab = \"Year\", ylab = expression(SSB/SSB[MSY]), ylim = c(0, 1.1 * max(SSB_SSBMSY)))",
                  "matlines(Year, SSB_SSBMSY, col = scenario$col)",
                  "abline(h = c(0, MSY_ref), col = \"grey\")",
                  "if (!is.null(scenario$names)) legend(\"topleft\", scenario$names, col = scenario$col_legend, lty = scenario$lty)",
